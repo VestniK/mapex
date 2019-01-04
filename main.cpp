@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include <QtCore/QUrl>
 
 #include <QtWidgets/QApplication>
@@ -48,6 +50,36 @@ struct geo_point {
 };
 
 constexpr geo_point nsk_center = {82.947932_lon, 54.988053_lat};
+
+struct tile_coord {
+  int x = 0;
+  int y = 0;
+};
+
+struct projected_point {
+  tile_coord tile;
+  QPoint point;
+};
+
+constexpr double deg2rad(double deg) noexcept {
+  return deg*M_PI/180.;
+}
+
+projected_point project(geo_point point, int z_level) noexcept {
+  const double pow2z = (2 << z_level);
+  double tile_x;
+  const double x = std::modf((static_cast<double>(point.lon) + 180.)/360.*pow2z, &tile_x);
+
+  const double lat_rad = deg2rad(static_cast<double>(point.lat));
+  double tile_y;
+  const double y = std::modf((1. - std::log(std::tan(lat_rad) + 1./std::cos(lat_rad))/M_PI)/2.*pow2z, &tile_y);
+
+  constexpr int tile_pixel_size = 256;
+  return {
+    {static_cast<int>(tile_x), static_cast<int>(tile_y)},
+    {static_cast<int>(std::floor(x*tile_pixel_size)), static_cast<int>(std::floor(y*tile_pixel_size))}
+  };
+}
 
 } // namespace
 
