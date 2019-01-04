@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.9)
 
 project(mapex)
-add_executable(mapex main.cpp)
+set(CMAKE_AUTOMOC ON)
+
+add_executable(mapex
+  mapex/main.cpp
+  mapex/tile_widget.hpp
+  mapex/tile_widget.cpp
+)
 target_compile_features(mapex PRIVATE cxx_std_17)
+target_include_directories(mapex PRIVATE ${mapex_SOURCE_DIR})
 
 find_package(portable_concurrency REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Core Network Widgets)
