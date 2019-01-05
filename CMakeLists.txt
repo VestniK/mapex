@@ -4,6 +4,7 @@ project(mapex)
 set(CMAKE_AUTOMOC ON)
 
 add_executable(mapex
+  mapex/geo_point.hpp
   mapex/main.cpp
   mapex/tile_widget.hpp
   mapex/tile_widget.cpp

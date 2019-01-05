@@ -1,6 +1,6 @@
-#include <QtCore/QUrl>
-
 #include <QtWidgets/QApplication>
+
+#include <mapex/geo_point.hpp>
 #include <mapex/tile_widget.hpp>
 
 namespace {

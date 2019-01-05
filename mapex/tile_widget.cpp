@@ -1,4 +1,7 @@
 #include <cmath>
+#include <utility>
+
+#include <QtCore/QUrl>
 
 #include <QtGui/QPaintEvent>
 #include <QtGui/QPainter>
