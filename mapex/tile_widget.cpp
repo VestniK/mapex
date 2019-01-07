@@ -1,23 +1,12 @@
 #include <cmath>
 #include <utility>
 
-#include <QtCore/QUrl>
-
 #include <QtGui/QPaintEvent>
 #include <QtGui/QPainter>
 
 #include <mapex/tile_widget.hpp>
 
 namespace {
-
-QUrl get_tile_url(int x, int y, int z_level) {
-  return QUrl{
-    QStringLiteral("https://tile1.maps.2gis.com/tiles?x=%1&y=%2&z=%3&v=1.5&r=g&ts=online_sd")
-      .arg(x)
-      .arg(y)
-      .arg(z_level)
-  };
-}
 
 constexpr double deg2rad(double deg) noexcept {
   return deg*M_PI/180.;

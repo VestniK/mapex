@@ -6,6 +6,10 @@ set(CMAKE_AUTOMOC ON)
 add_executable(mapex
   mapex/geo_point.hpp
   mapex/main.cpp
+  mapex/promised_reply.cpp
+  mapex/promised_reply.hpp
+  mapex/tile_loader.hpp
+  mapex/tile_loader.cpp
   mapex/tile_widget.hpp
   mapex/tile_widget.cpp
 )
