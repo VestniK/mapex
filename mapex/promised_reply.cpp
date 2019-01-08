@@ -2,6 +2,7 @@
 #include <QtCore/QMetaObject>
 
 #include <mapex/promised_reply.hpp>
+#include <mapex/qnetwork_category.hpp>
 
 promised_reply::promised_reply(QNetworkReply* reply, QObject* parent):
   QObject{parent}
@@ -11,7 +12,6 @@ promised_reply::promised_reply(QNetworkReply* reply, QObject* parent):
   QMetaObject::connectSlotsByName(this);
 }
 
-
 void promised_reply::on_reply_finished() {
   deleteLater();
   auto* reply = qobject_cast<QNetworkReply*>(sender());
@@ -19,11 +19,11 @@ void promised_reply::on_reply_finished() {
   promise_.set_value(reply);
 }
 
-void promised_reply::on_reply_error(QNetworkReply::NetworkError) {
+void promised_reply::on_reply_error(QNetworkReply::NetworkError err) {
   deleteLater();
   auto* reply = qobject_cast<QNetworkReply*>(sender());
   disconnect(this, nullptr, reply, nullptr);
-  promise_.set_exception(std::make_exception_ptr(std::runtime_error{"Error"})); // TODO std::system_error
+  promise_.set_exception(std::make_exception_ptr(std::system_error{err, reply->errorString().toStdString()}));
 }
 
 void promised_reply::on_reply_sslErrors(const QList<QSslError>&) {
