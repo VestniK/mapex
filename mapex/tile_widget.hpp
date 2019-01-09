@@ -1,10 +1,26 @@
 #pragma once
 
+#include <map>
 #include <optional>
+#include <tuple>
 
 #include <QtWidgets/QWidget>
 
+#include <QtNetwork/QNetworkAccessManager>
+
+#include <portable_concurrency/future_fwd>
+
 #include <mapex/geo_point.hpp>
+
+struct tile_id {
+  int x = 0;
+  int y = 0;
+  int z_level = 0;
+
+  bool operator< (const tile_id& rhs) const noexcept {
+    return std::tie(z_level, x, y) < std::tie(rhs.z_level, rhs.x, rhs.y);
+  }
+};
 
 class tile_widget final: public QWidget {
   Q_OBJECT
@@ -25,6 +41,8 @@ protected:
   void mouseMoveEvent(QMouseEvent* event) override;
 
 private:
+  QNetworkAccessManager nm_;
+  std::map<tile_id, pc::shared_future<QImage>> images_;
   QPointF projected_center_;
   int z_level_ = 12;
   int wheel_accum_ = 0;

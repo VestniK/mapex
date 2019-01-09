@@ -1,6 +1,7 @@
 #include <QtCore/QUrl>
 
 #include <QtGui/QImage>
+#include <QtGui/QImageReader>
 
 #include <QtNetwork/QNetworkReply>
 
@@ -25,8 +26,18 @@ QUrl get_tile_url(int x, int y, int z_level) {
 pc::future<QImage> load_tile(QNetworkAccessManager& nm, int x, int y, int z_level) {
   auto* reply = new promised_reply{nm.get(QNetworkRequest{get_tile_url(x, y, z_level)}), &nm};
   return reply->get_future().next([](QNetworkReply* reply) {
+    const auto mime = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
+    if (!QImageReader::supportedMimeTypes().contains(mime))
+      throw std::runtime_error{"unsupported image MIME type + " + mime.toStdString()};
+
+    const auto formats = QImageReader::imageFormatsForMimeType(mime);
+    if (formats.empty())
+      throw std::runtime_error{"no known formats for MIME + " + mime.toStdString()};
+
+    QImageReader reader{reply, formats.first()};
     QImage res;
-    res.load(reply, "PNG"); // TODO extract format from reply MIME type
+    if (!reader.read(&res))
+      throw std::runtime_error{"failed to load image: " + reader.errorString().toStdString()};
     return res;
   });
 }

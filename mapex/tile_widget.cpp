@@ -4,7 +4,10 @@
 #include <QtGui/QPaintEvent>
 #include <QtGui/QPainter>
 
+#include <portable_concurrency/future>
+
 #include <mapex/tile_widget.hpp>
+#include <mapex/tile_loader.hpp>
 
 namespace {
 
@@ -70,8 +73,12 @@ void tile_widget::paintEvent(QPaintEvent* event) {
   for (int tx = min_tile.x(); tx < max_tile.x(); ++tx) {
     for (int ty = min_tile.y(); ty < max_tile.y(); ++ty) {
       const auto tile = QRect{QPoint{tx, ty}*tile_pixel_size, tile_size}.translated(-projected_top_left);
-      painter.drawRect(tile);
-      painter.drawText(tile, QStringLiteral("%1, %2, %3").arg(tx).arg(ty).arg(z_level_), QTextOption{Qt::AlignCenter});
+      auto it = images_.find({tx, ty, z_level_});
+      if (it == images_.end())
+        it = images_.insert({{tx, ty, z_level_}, load_tile(nm_, tx, ty, z_level_)}).first;
+      if (!it->second.is_ready())
+        continue;
+      painter.drawImage(tile, it->second.get());
     }
   }
   event->accept();
