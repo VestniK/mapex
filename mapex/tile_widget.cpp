@@ -17,6 +17,7 @@ constexpr double deg2rad(double deg) noexcept {
 
 constexpr int tile_pixel_size = 256;
 constexpr int max_z_level = 16;
+constexpr QSize tile_size{tile_pixel_size, tile_pixel_size};
 
 QPointF project(geo_point point) noexcept {
   const double x = (static_cast<double>(point.lon) + 180.)/360.;
@@ -28,6 +29,10 @@ QPointF project(geo_point point) noexcept {
 
 QPoint floor(QPointF point) noexcept {
   return {static_cast<int>(std::floor(point.x())), static_cast<int>(std::floor(point.y()))};
+}
+
+constexpr QPointF squre_clamp(QPointF point, qreal min, qreal max) noexcept {
+  return {std::clamp(point.x(), min, max), std::clamp(point.y(), min, max)};
 }
 
 constexpr QPoint int_div(QPoint point, int denom) noexcept {
@@ -67,7 +72,6 @@ void tile_widget::paintEvent(QPaintEvent* event) {
     int_div(vp_projection.bottomRight(), tile_pixel_size) + QPoint{1, 1},
     {tiles_coord_range, tiles_coord_range}
   );
-  const QSize tile_size{tile_pixel_size, tile_pixel_size};
 
   QPainter painter(this);
   for (int tx = min_tile.x(); tx < max_tile.x(); ++tx) {
@@ -96,11 +100,9 @@ void tile_widget::wheelEvent(QWheelEvent* event) {
   const int old_z_level = std::exchange(z_level_, std::clamp(z_level_ + wheel_accum_/wheel_step, 0, max_z_level));
   wheel_accum_ %= wheel_step;
 
-  const QPointF shift = (event->posF() - rect().center())*((1<<z_level_)/(1<<old_z_level) - 1.);
-  projected_center_ -= shift/(tile_pixel_size*(1<<z_level_));
-  projected_center_.rx() = std::clamp(projected_center_.x(), 0., 1.);
-  projected_center_.ry() = std::clamp(projected_center_.y(), 0., 1.);
-
+  const QPointF shift = (event->posF() - rect().center())/tile_pixel_size;
+  projected_center_ += shift*((1<<z_level_) - (1<<old_z_level))/(1<<(old_z_level+z_level_));
+  projected_center_ = squre_clamp(projected_center_, 0., 1.);
   update();
 }
 
@@ -109,16 +111,16 @@ void tile_widget::mousePressEvent(QMouseEvent* event) {
     return event->accept();
 
   if (event->buttons() != Qt::LeftButton)
-    return QWidget::mouseMoveEvent(event);
+    return QWidget::mousePressEvent(event);
 
   last_mouse_move_pos_ = event->pos();
   event->accept();
 }
 
 void tile_widget::mouseReleaseEvent(QMouseEvent* event) {
-  if (std::exchange(last_mouse_move_pos_, std::nullopt))
-    return event->accept();
-  return QWidget::mouseMoveEvent(event);
+  if (!std::exchange(last_mouse_move_pos_, std::nullopt))
+    return QWidget::mouseReleaseEvent(event);
+  event->accept();
 }
 
 void tile_widget::mouseMoveEvent(QMouseEvent* event) {
@@ -126,8 +128,7 @@ void tile_widget::mouseMoveEvent(QMouseEvent* event) {
     return QWidget::mouseMoveEvent(event);
   const QPointF shift = event->pos() - std::exchange(*last_mouse_move_pos_, event->pos());
   projected_center_ -= shift/(tile_pixel_size*(1<<z_level_));
-  projected_center_.rx() = std::clamp(projected_center_.x(), 0., 1.);
-  projected_center_.ry() = std::clamp(projected_center_.y(), 0., 1.);
+  projected_center_ = squre_clamp(projected_center_, 0., 1.);
   update();
   event->accept();
 }
