@@ -42,7 +42,8 @@ protected:
 
 private:
   QNetworkAccessManager nm_;
-  std::map<tile_id, pc::shared_future<QImage>> images_;
+  std::map<tile_id, QImage> images_;
+  std::map<tile_id, pc::future<QImage>> tasks_;
   QPointF projected_center_;
   int z_level_ = 12;
   int wheel_accum_ = 0;

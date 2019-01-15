@@ -76,13 +76,22 @@ void tile_widget::paintEvent(QPaintEvent* event) {
   QPainter painter(this);
   for (int tx = min_tile.x(); tx < max_tile.x(); ++tx) {
     for (int ty = min_tile.y(); ty < max_tile.y(); ++ty) {
-      auto [it, success] = images_.insert({{tx, ty, z_level_}, {}});
+      const auto tile = QRect{QPoint{tx, ty}*tile_pixel_size, tile_size}.translated(-projected_top_left);
+      if (auto it = images_.find({tx, ty, z_level_}); it != images_.end()) {
+        painter.drawImage(tile, it->second);
+        continue;
+      }
+
+      auto [it, success] = tasks_.emplace(tile_id{tx, ty, z_level_}, pc::future<QImage>{});
       if (success)
         it->second = load_tile(nm_, tx, ty, z_level_).then([this](auto f){update(); return f;});
       if (!it->second.is_ready())
         continue;
-      const auto tile = QRect{QPoint{tx, ty}*tile_pixel_size, tile_size}.translated(-projected_top_left);
-      painter.drawImage(tile, it->second.get());
+
+      QImage img = it->second.get();
+      painter.drawImage(tile, img);
+      images_.insert({{tx, ty, z_level_}, std::move(img)});
+      tasks_.erase(it);
     }
   }
   event->accept();
