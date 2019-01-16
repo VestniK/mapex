@@ -54,11 +54,13 @@ tile_widget::tile_widget(geo_point center, int z_level, QWidget* parent):
   QWidget{parent},
   projected_center_{project(center)},
   z_level_{z_level}
-{}
+{
+  on_viewport_change();
+}
 
 void tile_widget::center_at(geo_point pos) {
   projected_center_ = project(pos);
-  update();
+  on_viewport_change();
 }
 
 void tile_widget::paintEvent(QPaintEvent* event) {
@@ -66,33 +68,20 @@ void tile_widget::paintEvent(QPaintEvent* event) {
   const auto projected_top_left =
     floor(tile_pixel_size*tiles_coord_range*projected_center_) - (rect().center() - rect().topLeft())
   ;
-  const QRect vp_projection = rect().translated(projected_top_left);
-  const QPoint min_tile = max(int_div(vp_projection.topLeft(), tile_pixel_size), {0, 0});
-  const QPoint max_tile = min(
-    int_div(vp_projection.bottomRight(), tile_pixel_size) + QPoint{1, 1},
-    {tiles_coord_range, tiles_coord_range}
-  );
+
+  for (auto it = tasks_.begin(); it != tasks_.end();) {
+    if (!it->second.is_ready()) {
+      ++it;
+      continue;
+    }
+    images_[it->first] = it->second.get();
+    it = tasks_.erase(it);
+  }
 
   QPainter painter(this);
-  for (int tx = min_tile.x(); tx < max_tile.x(); ++tx) {
-    for (int ty = min_tile.y(); ty < max_tile.y(); ++ty) {
-      const auto tile = QRect{QPoint{tx, ty}*tile_pixel_size, tile_size}.translated(-projected_top_left);
-      if (auto it = images_.find({tx, ty, z_level_}); it != images_.end()) {
-        painter.drawImage(tile, it->second);
-        continue;
-      }
-
-      auto [it, success] = tasks_.emplace(tile_id{tx, ty, z_level_}, pc::future<QImage>{});
-      if (success)
-        it->second = load_tile(nm_, tx, ty, z_level_).then([this](auto f){update(); return f;});
-      if (!it->second.is_ready())
-        continue;
-
-      QImage img = it->second.get();
-      painter.drawImage(tile, img);
-      images_.insert({{tx, ty, z_level_}, std::move(img)});
-      tasks_.erase(it);
-    }
+  for (const auto& [tile, image]: images_) {
+    const auto tile_rect = QRect{QPoint{tile.x, tile.y}*tile_pixel_size, tile_size}.translated(-projected_top_left);
+    painter.drawImage(tile_rect, image);
   }
   event->accept();
 }
@@ -112,7 +101,7 @@ void tile_widget::wheelEvent(QWheelEvent* event) {
   const QPointF shift = (event->posF() - rect().center())/tile_pixel_size;
   projected_center_ += shift*((1<<z_level_) - (1<<old_z_level))/(1<<(old_z_level+z_level_));
   projected_center_ = squre_clamp(projected_center_, 0., 1.);
-  update();
+  on_viewport_change();
 }
 
 void tile_widget::mousePressEvent(QMouseEvent* event) {
@@ -138,6 +127,40 @@ void tile_widget::mouseMoveEvent(QMouseEvent* event) {
   const QPointF shift = event->pos() - std::exchange(*last_mouse_move_pos_, event->pos());
   projected_center_ -= shift/(tile_pixel_size*(1<<z_level_));
   projected_center_ = squre_clamp(projected_center_, 0., 1.);
-  update();
+  on_viewport_change();
   event->accept();
+}
+
+void tile_widget::on_viewport_change() {
+  const int tiles_coord_range = (1<<z_level_);
+  const auto projected_top_left =
+    floor(tile_pixel_size*tiles_coord_range*projected_center_) - (rect().center() - rect().topLeft())
+  ;
+  const QRect vp_projection = rect().translated(projected_top_left);
+  const QPoint min_tile = max(int_div(vp_projection.topLeft(), tile_pixel_size), {0, 0});
+  const QPoint max_tile = min(
+    int_div(vp_projection.bottomRight(), tile_pixel_size) + QPoint{1, 1},
+    {tiles_coord_range, tiles_coord_range}
+  );
+
+  std::map<tile_id, QImage> new_images;
+  std::map<tile_id, pc::future<QImage>> new_tasks;
+  for (int tx = min_tile.x(); tx < max_tile.x(); ++tx) {
+    for (int ty = min_tile.y(); ty < max_tile.y(); ++ty) {
+      if (auto node = images_.extract({tx, ty, z_level_})) {
+        new_images.insert(std::move(node));
+        continue;
+      }
+
+      if (auto node = tasks_.extract({tx, ty, z_level_})) {
+        new_tasks.insert(std::move(node));
+        continue;
+      }
+
+      new_tasks[{tx, ty, z_level_}] = load_tile(nm_, tx, ty, z_level_).then([this](auto f){update(); return f;});
+    }
+  }
+  std::swap(new_images, images_);
+  std::swap(new_tasks, tasks_);
+  update();
 }

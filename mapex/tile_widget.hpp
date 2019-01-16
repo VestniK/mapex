@@ -41,6 +41,9 @@ protected:
   void mouseMoveEvent(QMouseEvent* event) override;
 
 private:
+  void on_viewport_change();
+
+private:
   QNetworkAccessManager nm_;
   std::map<tile_id, QImage> images_;
   std::map<tile_id, pc::future<QImage>> tasks_;
