@@ -5,11 +5,15 @@ enable_testing()
 set(CMAKE_AUTOMOC ON)
 
 add_library(mapex.impl STATIC
+  mapex/executors.hpp
+  mapex/executors.cpp
   mapex/geo_point.hpp
   mapex/promised_reply.cpp
   mapex/promised_reply.hpp
   mapex/qnetwork_category.cpp
   mapex/qnetwork_category.hpp
+  mapex/network_thread.hpp
+  mapex/network_thread.cpp
   mapex/tile_loader.hpp
   mapex/tile_loader.cpp
   mapex/tile_widget.hpp

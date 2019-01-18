@@ -6,10 +6,9 @@
 
 #include <QtWidgets/QWidget>
 
-#include <QtNetwork/QNetworkAccessManager>
-
 #include <portable_concurrency/future_fwd>
 
+#include <mapex/executors.hpp>
 #include <mapex/geo_point.hpp>
 
 struct tile_id {
@@ -26,12 +25,16 @@ class tile_widget final: public QWidget {
   Q_OBJECT
   Q_PROPERTY(int z_level READ z_level WRITE set_z_level)
 public:
+  using executor_type = QObject*;
+
   tile_widget(geo_point center, int z_level, QWidget* parent = nullptr);
 
   void center_at(geo_point val);
 
   int z_level() const noexcept {return z_level_;}
   void set_z_level(int val) {z_level_ = val; update();}
+
+  executor_type executor() noexcept {return this;}
 
 protected:
   void paintEvent(QPaintEvent* event) override;
@@ -44,7 +47,6 @@ private:
   void on_viewport_change();
 
 private:
-  QNetworkAccessManager nm_;
   std::map<tile_id, QImage> images_;
   std::map<tile_id, pc::future<QImage>> tasks_;
   QPointF projected_center_;

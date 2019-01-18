@@ -6,6 +6,7 @@
 
 #include <portable_concurrency/future>
 
+#include <mapex/network_thread.hpp>
 #include <mapex/tile_widget.hpp>
 #include <mapex/tile_loader.hpp>
 
@@ -147,17 +148,23 @@ void tile_widget::on_viewport_change() {
   std::map<tile_id, pc::future<QImage>> new_tasks;
   for (int tx = min_tile.x(); tx < max_tile.x(); ++tx) {
     for (int ty = min_tile.y(); ty < max_tile.y(); ++ty) {
-      if (auto node = images_.extract({tx, ty, z_level_})) {
+      tile_id tid = {tx, ty, z_level_};
+      if (auto node = images_.extract(tid)) {
         new_images.insert(std::move(node));
         continue;
       }
 
-      if (auto node = tasks_.extract({tx, ty, z_level_})) {
+      if (auto node = tasks_.extract(tid)) {
         new_tasks.insert(std::move(node));
         continue;
       }
 
-      new_tasks[{tx, ty, z_level_}] = load_tile(nm_, tx, ty, z_level_).then([this](auto f){update(); return f;});
+      new_tasks[tid] = pc::async(network_thread::instance()->executor(), [tid] {
+        return load_tile(network_thread::instance()->network_manager(), tid.x, tid.y, tid.z_level);
+      }).then(executor(), [this](auto f) {
+        update();
+        return f;
+      });
     }
   }
   std::swap(new_images, images_);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <QtCore/QObject>
 
 #include <QtNetwork/QNetworkReply>
@@ -12,7 +14,7 @@ public:
   promised_reply(QNetworkReply* reply, QObject* parent = nullptr);
 
   [[nodiscard]]
-  pc::future<QNetworkReply*> get_future() {return promise_.get_future();}
+  pc::future<std::unique_ptr<QNetworkReply>> get_future() {return promise_.get_future();}
 
 private slots:
   void on_reply_finished();
@@ -20,5 +22,6 @@ private slots:
   void on_reply_sslErrors(const QList<QSslError> &errors);
 
 private:
-  pc::promise<QNetworkReply*> promise_;
+  bool promise_satisfied_ = false;
+  pc::promise<std::unique_ptr<QNetworkReply>> promise_;
 };
