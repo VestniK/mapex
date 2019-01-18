@@ -5,7 +5,7 @@
 
 #include <mapex/executors.hpp>
 
-enum class instance_scope {local, global};
+enum class instance_scope { local, global };
 
 class network_thread {
 public:
@@ -19,13 +19,13 @@ public:
   void shotdown();
 
   /// @threadsafe
-  static network_thread* instance() noexcept {return ms_instance;}
+  static network_thread* instance() noexcept { return ms_instance; }
 
   /// @threadsafe
-  executor_type executor() noexcept {return &nm_;}
+  executor_type executor() noexcept { return &nm_; }
 
   /// Must only be used inside a task posted to `this->executor()`
-  QNetworkAccessManager& network_manager() noexcept {return nm_;}
+  QNetworkAccessManager& network_manager() noexcept { return nm_; }
 
 private:
   static network_thread* ms_instance;

@@ -9,18 +9,16 @@
 #include <portable_concurrency/future>
 
 #include <mapex/executors.hpp>
-#include <mapex/tile_loader.hpp>
 #include <mapex/promised_reply.hpp>
+#include <mapex/tile_loader.hpp>
 
 namespace {
 
 QUrl get_tile_url(int x, int y, int z_level) {
-  return QUrl{
-    QStringLiteral("https://tile1.maps.2gis.com/tiles?x=%1&y=%2&z=%3&v=1.5&r=g&ts=online_sd")
-      .arg(x)
-      .arg(y)
-      .arg(z_level)
-  };
+  return QUrl{QStringLiteral("https://tile1.maps.2gis.com/tiles?x=%1&y=%2&z=%3&v=1.5&r=g&ts=online_sd")
+                  .arg(x)
+                  .arg(y)
+                  .arg(z_level)};
 }
 
 } // namespace

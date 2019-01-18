@@ -1,12 +1,10 @@
-#include <QtNetwork/QNetworkReply>
 #include <QtCore/QMetaObject>
+#include <QtNetwork/QNetworkReply>
 
 #include <mapex/promised_reply.hpp>
 #include <mapex/qnetwork_category.hpp>
 
-promised_reply::promised_reply(QNetworkReply* reply, QObject* parent):
-  QObject{parent}
-{
+promised_reply::promised_reply(QNetworkReply* reply, QObject* parent) : QObject{parent} {
   reply->setParent(this);
   reply->setObjectName("reply");
   QMetaObject::connectSlotsByName(this);

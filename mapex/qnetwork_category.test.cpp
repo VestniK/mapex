@@ -4,8 +4,7 @@
 
 Q_DECLARE_METATYPE(std::errc);
 
-class qnetwork_category_tests: public QObject
-{
+class qnetwork_category_tests : public QObject {
   Q_OBJECT
 private:
   bool starts_with(const std::string& str, const std::string& prefix) {
@@ -63,14 +62,14 @@ private slots:
     QVERIFY(!ec);
   }
 
-  void ec_value_equals_to_enum_value_data() {generate_all_errors_dataset();}
+  void ec_value_equals_to_enum_value_data() { generate_all_errors_dataset(); }
   void ec_value_equals_to_enum_value() {
     QFETCH(QNetworkReply::NetworkError, error);
     std::error_code ec = error;
     QCOMPARE(ec.value(), static_cast<int>(error));
   }
 
-  void ec_category_is_qnetwork_category_data() {generate_all_errors_dataset();}
+  void ec_category_is_qnetwork_category_data() { generate_all_errors_dataset(); }
   void ec_category_is_qnetwork_category() {
     QFETCH(QNetworkReply::NetworkError, error);
     std::error_code ec = error;
@@ -82,7 +81,7 @@ private slots:
     QCOMPARE(ec.message(), "the operation was canceled via calls to abort() or close() before it was finished.");
   }
 
-  void ec_message_is_not_unknown_code_message_data() {generate_all_errors_dataset();}
+  void ec_message_is_not_unknown_code_message_data() { generate_all_errors_dataset(); }
   void ec_message_is_not_unknown_code_message() {
     QFETCH(QNetworkReply::NetworkError, error);
     std::error_code ec = error;
@@ -105,7 +104,7 @@ private slots:
     QCOMPARE(ec, cond);
   }
 
-  void ec_matches_same_value_and_category_condition_data() {generate_all_errors_dataset();}
+  void ec_matches_same_value_and_category_condition_data() { generate_all_errors_dataset(); }
   void ec_matches_same_value_and_category_condition() {
     QFETCH(QNetworkReply::NetworkError, error);
     std::error_code ec = error;

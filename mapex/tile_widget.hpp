@@ -16,12 +16,12 @@ struct tile_id {
   int y = 0;
   int z_level = 0;
 
-  bool operator< (const tile_id& rhs) const noexcept {
+  bool operator<(const tile_id& rhs) const noexcept {
     return std::tie(z_level, x, y) < std::tie(rhs.z_level, rhs.x, rhs.y);
   }
 };
 
-class tile_widget final: public QWidget {
+class tile_widget final : public QWidget {
   Q_OBJECT
   Q_PROPERTY(int z_level READ z_level WRITE set_z_level)
 public:
@@ -31,10 +31,13 @@ public:
 
   void center_at(geo_point val);
 
-  int z_level() const noexcept {return z_level_;}
-  void set_z_level(int val) {z_level_ = val; update();}
+  int z_level() const noexcept { return z_level_; }
+  void set_z_level(int val) {
+    z_level_ = val;
+    update();
+  }
 
-  executor_type executor() noexcept {return this;}
+  executor_type executor() noexcept { return this; }
 
 protected:
   void paintEvent(QPaintEvent* event) override;

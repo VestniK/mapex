@@ -8,18 +8,17 @@
 
 #include <portable_concurrency/future>
 
-class promised_reply final: public QObject {
+class promised_reply final : public QObject {
   Q_OBJECT
 public:
   promised_reply(QNetworkReply* reply, QObject* parent = nullptr);
 
-  [[nodiscard]]
-  pc::future<std::unique_ptr<QNetworkReply>> get_future() {return promise_.get_future();}
+  [[nodiscard]] pc::future<std::unique_ptr<QNetworkReply>> get_future() { return promise_.get_future(); }
 
 private slots:
   void on_reply_finished();
   void on_reply_error(QNetworkReply::NetworkError);
-  void on_reply_sslErrors(const QList<QSslError> &errors);
+  void on_reply_sslErrors(const QList<QSslError>& errors);
 
 private:
   bool promise_satisfied_ = false;

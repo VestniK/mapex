@@ -5,7 +5,7 @@
 network_thread* network_thread::ms_instance = nullptr;
 
 network_thread::network_thread(instance_scope scope) {
-  QObject::connect(&thread_, &QThread::finished, &nm_, [this] {nm_.moveToThread(nullptr);}, Qt::DirectConnection);
+  QObject::connect(&thread_, &QThread::finished, &nm_, [this] { nm_.moveToThread(nullptr); }, Qt::DirectConnection);
   nm_.moveToThread(&thread_);
   thread_.setObjectName("mapex_network");
   thread_.start();

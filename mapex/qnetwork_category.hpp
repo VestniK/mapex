@@ -5,8 +5,9 @@
 #include <QtNetwork/QNetworkReply>
 
 namespace std {
-template<> struct is_error_code_enum<QNetworkReply::NetworkError>: std::true_type {};
-}
+template <>
+struct is_error_code_enum<QNetworkReply::NetworkError> : std::true_type {};
+} // namespace std
 
 const std::error_category& qnetwork_category() noexcept;
 

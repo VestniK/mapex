@@ -8,8 +8,10 @@ class QThreadPool;
 
 namespace portable_concurrency {
 
-template<> struct is_executor<QObject*>: std::true_type {};
-template<> struct is_executor<QThreadPool*>: std::true_type {};
+template <>
+struct is_executor<QObject*> : std::true_type {};
+template <>
+struct is_executor<QThreadPool*> : std::true_type {};
 
 } // namespace portable_concurrency
 

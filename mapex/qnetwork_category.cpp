@@ -2,7 +2,7 @@
 
 const std::error_category& qnetwork_category() noexcept {
   static const struct : std::error_category {
-    const char* name() const noexcept override {return "QNetworkReply::NetworkError";}
+    const char* name() const noexcept override { return "QNetworkReply::NetworkError"; }
 
     std::string message(int cond) const noexcept override {
       switch (static_cast<QNetworkReply::NetworkError>(cond)) {
@@ -88,10 +88,9 @@ const std::error_category& qnetwork_category() noexcept {
     }
 
     bool equivalent(int code, const std::error_condition& cond) const noexcept override {
-      return
-        (code == QNetworkReply::ConnectionRefusedError && cond == std::errc::connection_refused) ||
-        (code == QNetworkReply::RemoteHostClosedError && cond == std::errc::connection_reset) ||
-        (code == QNetworkReply::TimeoutError && cond == std::errc::timed_out);
+      return (code == QNetworkReply::ConnectionRefusedError && cond == std::errc::connection_refused) ||
+             (code == QNetworkReply::RemoteHostClosedError && cond == std::errc::connection_reset) ||
+             (code == QNetworkReply::TimeoutError && cond == std::errc::timed_out);
     }
   } inst;
   return inst;
