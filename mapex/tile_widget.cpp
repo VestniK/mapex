@@ -56,19 +56,11 @@ void tile_widget::center_at(geo_point pos) {
 }
 
 void tile_widget::paintEvent(QPaintEvent* event) {
+  check_finished_tasks();
+
   const int tiles_coord_range = (1 << z_level_);
   const auto projected_top_left =
       floor(tile_pixel_size * tiles_coord_range * projected_center_) - (rect().center() - rect().topLeft());
-
-  for (auto it = tasks_.begin(); it != tasks_.end();) {
-    if (!it->second.is_ready()) {
-      ++it;
-      continue;
-    }
-    images_[it->first] = it->second.get();
-    it = tasks_.erase(it);
-  }
-
   QPainter painter(this);
   for (const auto& [tile, image] : images_) {
     const auto tile_rect = QRect{QPoint{tile.x, tile.y} * tile_pixel_size, tile_size}.translated(-projected_top_left);
@@ -157,4 +149,15 @@ void tile_widget::on_viewport_change() {
   std::swap(new_images, images_);
   std::swap(new_tasks, tasks_);
   update();
+}
+
+void tile_widget::check_finished_tasks() {
+  for (auto it = tasks_.begin(); it != tasks_.end();) {
+    if (!it->second.is_ready()) {
+      ++it;
+      continue;
+    }
+    images_[it->first] = it->second.get();
+    it = tasks_.erase(it);
+  }
 }

@@ -48,6 +48,7 @@ protected:
 
 private:
   void on_viewport_change();
+  void check_finished_tasks();
 
 private:
   std::map<tile_id, QImage> images_;
