@@ -9,7 +9,7 @@
 #include <portable_concurrency/future>
 
 #include <mapex/executors.hpp>
-#include <mapex/promised_reply.hpp>
+#include <mapex/qnetwork_category.hpp>
 #include <mapex/tile_loader.hpp>
 
 namespace {
@@ -20,6 +20,48 @@ QUrl get_tile_url(int x, int y, int z_level) {
                   .arg(y)
                   .arg(z_level)};
 }
+
+// Self-deletes on reply finished. Deletes reply on error.
+class promised_reply final : public QObject {
+  Q_OBJECT
+public:
+  promised_reply(QNetworkReply* reply, QObject* parent = nullptr) : QObject{parent} {
+    reply->setParent(this);
+    reply->setObjectName("reply");
+    QMetaObject::connectSlotsByName(this);
+  }
+
+  [[nodiscard]] pc::future<std::unique_ptr<QNetworkReply>> get_future() { return promise_.get_future(); }
+
+  private slots : void on_reply_finished() {
+    deleteLater();
+    if (std::exchange(promise_satisfied_, true))
+      return;
+    auto* reply = qobject_cast<QNetworkReply*>(sender());
+    reply->setParent(nullptr);
+    promise_.set_value(std::unique_ptr<QNetworkReply>{reply});
+  }
+
+  void on_reply_error(QNetworkReply::NetworkError err) {
+    deleteLater();
+    if (std::exchange(promise_satisfied_, true))
+      return;
+    auto* reply = qobject_cast<QNetworkReply*>(sender());
+    promise_.set_exception(std::make_exception_ptr(std::system_error{err, reply->errorString().toStdString()}));
+  }
+
+  void on_reply_sslErrors(const QList<QSslError>&) {
+    deleteLater();
+    if (std::exchange(promise_satisfied_, true))
+      return;
+    auto* reply = qobject_cast<QNetworkReply*>(sender());
+    promise_.set_exception(std::make_exception_ptr(std::runtime_error{"SSL Error"})); // TODO std::system_error
+  }
+
+private:
+  pc::promise<std::unique_ptr<QNetworkReply>> promise_;
+  bool promise_satisfied_ = false;
+};
 
 } // namespace
 
@@ -41,3 +83,5 @@ pc::future<QImage> load_tile(QNetworkAccessManager& nm, int x, int y, int z_leve
     return res;
   });
 }
+
+#include "tile_loader.moc"
