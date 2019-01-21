@@ -11,6 +11,8 @@
 #include <mapex/executors.hpp>
 #include <mapex/geo_point.hpp>
 
+class network_thread;
+
 struct tile_id {
   int x = 0;
   int y = 0;
@@ -27,7 +29,7 @@ class tile_widget final : public QWidget {
 public:
   using executor_type = QObject*;
 
-  tile_widget(geo_point center, int z_level, QWidget* parent = nullptr);
+  tile_widget(geo_point center, int z_level, network_thread* net, QWidget* parent = nullptr);
 
   void center_at(geo_point val);
 
@@ -51,6 +53,7 @@ private:
   void check_finished_tasks();
 
 private:
+  network_thread* net_ = nullptr;
   std::map<tile_id, QImage> images_;
   std::map<tile_id, pc::future<QImage>> tasks_;
   QPointF projected_center_;

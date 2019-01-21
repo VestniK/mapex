@@ -45,8 +45,8 @@ constexpr QPoint max(QPoint a, QPoint b) noexcept { return {std::max(a.x(), b.x(
 
 } // namespace
 
-tile_widget::tile_widget(geo_point center, int z_level, QWidget* parent)
-    : QWidget{parent}, projected_center_{project(center)}, z_level_{z_level} {
+tile_widget::tile_widget(geo_point center, int z_level, network_thread* net, QWidget* parent)
+    : QWidget{parent}, net_{net}, projected_center_{project(center)}, z_level_{z_level} {
   on_viewport_change();
 }
 
@@ -138,12 +138,14 @@ void tile_widget::on_viewport_change() {
         continue;
       }
 
-      new_tasks[tid] = pc::async(network_thread::instance()->executor(),
-          [tid] { return load_tile(network_thread::instance()->network_manager(), tid.x, tid.y, tid.z_level); })
-                           .then(executor(), [this](auto f) {
-                             update();
-                             return f;
-                           });
+      // clang-format off
+      new_tasks[tid] = pc::async(net_->executor(), [tid, net = net_] {
+        return load_tile(net->network_manager(), tid.x, tid.y, tid.z_level);
+      }).then(executor(), [this](auto f) {
+        update();
+        return f;
+      });
+      // clang-format on
     }
   }
   std::swap(new_images, images_);

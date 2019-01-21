@@ -13,9 +13,9 @@ constexpr geo_point nsk_center = {82.947932_lon, 54.988053_lat};
 int main(int argc, char** argv) {
   QApplication app{argc, argv};
 
-  network_thread net_thread{instance_scope::global};
-
-  tile_widget wnd{nsk_center, 12};
+  network_thread net_thread;
+  tile_widget wnd{nsk_center, 12, &net_thread};
   wnd.show();
+
   return app.exec();
 }
