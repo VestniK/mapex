@@ -1,0 +1,136 @@
+\documentclass[aspectratio=169,pdf,hyperref={unicode},14pt]{beamer}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian,english]{babel}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{default}
+\usepackage{hyperref}
+
+% Настройки бимера
+\usetheme{Copenhagen}
+
+% Настройки листинга
+\definecolor{comments}{rgb}{0.5,0.5,0.5}
+\definecolor{stdtypes}{rgb}{0.3,0.0,0.0}
+
+\lstdefinestyle{cppcode}{
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  frame=L,
+  xleftmargin=\parindent,
+  language=C++,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  morekeywords={constexpr,static_assert,decltype,co_await,co_return},
+  keywordstyle=\bfseries\color{blue},
+  commentstyle=\itshape\color{comments},
+  stringstyle=\color{brown},
+  classoffset=1,
+  morekeywords=[1]{std,map,launch,future,shared_future,promise,packaged_task,async,move,to_string,when_any_result,when_any,tuple,when_all,list,vector,cout,flush},
+  keywordstyle=[1]\bfseries\color{stdtypes},
+}
+
+\newcommand{\gooditem}[1]{\setbeamercolor{local structure}{fg=green}\item #1}
+\newcommand{\baditem}[1]{\setbeamercolor{local structure}{fg=red}\item #1}
+\newcommand{\isodoc}[1]{{\scriptsize \color{gray} #1}}
+
+\title{Нестандартный future/promise}
+\author{Сергей Видюк}
+\date{15 февраля 2019}
+
+\begin{document}
+
+\begin{frame}
+ \maketitle
+\end{frame}
+
+\begin{frame}[t]{Кратко обо мне}
+ \begin{itemize}[<+->]
+  \item Работаю в команде 3D карыт мобильной верси 2ГИС
+  \item На последних трёх проектах был недоволен самописными API передачи данных между асинхронными задачами
+  \item Написал свою реализацию \texttt{future/promise} API на базе Concurrency~TS \url{https://github.com/VestniK/portable_concurrency}
+ \end{itemize}
+\end{frame}
+
+\begin{frame}[t]{Давайте напишем прогу которая...}
+ \begin{itemize}[<+->]
+  \item Рисует карту на базе web-тайлов
+  \item Отображает большое количество маркеров разных приоритетов
+  \item Выполняет разные задачи на разных потоках
+  \item Не использует мутексов
+  \item Не зависает и не падает на выходе
+  \item Лежит на гитхабе: \url{https://github.com/VestniK/mapex}
+ \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile,t]{Загружаем тайлы}
+  \begin{onlyenv}<1>
+  \begin{lstlisting}[style=cppcode]
+struct tile_id {
+  int tx;
+  int ty;
+  int z_level;
+};
+
+class tile_source {
+  QImage load(tile_id id);
+};
+  \end{lstlisting}
+  \begin{itemize}
+   \item Пусть синхронная функция загрузки у нас уже есть
+  \end{itemize}
+  \end{onlyenv}
+
+  \begin{onlyenv}<2-3>
+  \begin{lstlisting}[style=cppcode]
+class tile_widget {
+...
+private:
+  tile_source src_;
+  map<tile_id, std::future<QImage>> tasks_;
+};
+...
+tasks_[id] = std::async(
+  launch::async,
+  [=] {return src_.load(id);}
+);
+  \end{lstlisting}
+  \begin{itemize}
+   \begin{onlyenv}<2>
+    \item Воспользуемся \texttt{std::async}
+   \end{onlyenv}
+   \begin{onlyenv}<3>
+    \baditem Удаление задач только через ожидание их завершения
+    \baditem На выходе ждём завершения всех текущих задач
+   \end{onlyenv}
+  \end{itemize}
+  \end{onlyenv}
+
+  \begin{onlyenv}<4>
+  \begin{lstlisting}[style=cppcode]
+class tile_widget {
+...
+private:
+  tile_source src_;
+  map<tile_id, pc::future<QImage>> tasks_;
+};
+...
+tasks_[id] = pc::async(
+  QThreadPool::globalInstance(),
+  [=] {return src_.load(id);}
+);
+  \end{lstlisting}
+  \begin{itemize}
+   \item Перейдём на \texttt{pc::async}
+  \end{itemize}
+  \end{onlyenv}
+
+\end{frame}
+
+\begin{frame}{Спасибо за внимание}
+\centerline{\includegraphics[height=4.5cm]{question_mark_blue.png}}
+\end{frame}
+
+\end{document}
