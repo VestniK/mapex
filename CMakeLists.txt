@@ -5,6 +5,7 @@ enable_testing()
 set(CMAKE_AUTOMOC ON)
 
 add_library(mapex.impl STATIC
+  mapex/deltapack.hpp
   mapex/executors.hpp
   mapex/executors.cpp
   mapex/geo_point.hpp
@@ -35,9 +36,18 @@ PUBLIC
 add_executable(mapex mapex/main.cpp)
 target_link_libraries(mapex PRIVATE mapex.impl)
 
-add_executable(qnetwork_category.test mapex/qnetwork_category.test.cpp)
-target_link_libraries(qnetwork_category.test PRIVATE mapex.impl Qt5::Test)
-add_test(
-  NAME qnetwork_category
-  COMMAND qnetwork_category.test -o ${CMAKE_CURRENT_BINARY_DIR}/qnetwork_category.test.xml,xunitxml
+set(TESTS_SRC
+  mapex/qnetwork_category.test.cpp
+  mapex/deltapack.test.cpp
 )
+
+foreach(src ${TESTS_SRC})
+  get_filename_component(tst ${src} NAME_WE)
+  set(tgt ${tst}.test)
+  add_executable(${tgt} ${src})
+  target_link_libraries(${tgt} PRIVATE mapex.impl Qt5::Test)
+  add_test(
+    NAME ${tst}
+    COMMAND ${tgt} -o ${CMAKE_CURRENT_BINARY_DIR}/${tst}.test.xml,xunitxml
+  )
+endforeach()
