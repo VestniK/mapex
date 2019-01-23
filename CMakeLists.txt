@@ -39,6 +39,7 @@ target_link_libraries(mapex PRIVATE mapex.impl)
 set(TESTS_SRC
   mapex/qnetwork_category.test.cpp
   mapex/deltapack.test.cpp
+  mapex/morton_code.test.cpp
 )
 
 foreach(src ${TESTS_SRC})

@@ -7,6 +7,9 @@ struct point {
   uint32_t y = 0;
 };
 
+constexpr bool operator==(point l, point r) noexcept { return l.x == r.x && l.y == r.y; }
+constexpr bool operator!=(point l, point r) noexcept { return l.x != r.x || l.y != r.y; }
+
 namespace detial {
 
 constexpr uint64_t S[] = {16, 8, 4, 2, 1};
