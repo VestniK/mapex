@@ -74,9 +74,7 @@ struct tile_id {
   int z_level;
 };
 
-class tile_source {
-  QImage load(tile_id id);
-};
+QImage load_tile(tile_id id);
   \end{lstlisting}
   \begin{itemize}
    \item Пусть синхронная функция загрузки у нас уже есть
@@ -85,16 +83,11 @@ class tile_source {
 
   \begin{onlyenv}<2-3>
   \begin{lstlisting}[style=cppcode]
-class tile_widget {
+map<tile_id, std::future<QImage>> tasks;
 ...
-private:
-  tile_source src_;
-  map<tile_id, std::future<QImage>> tasks_;
-};
-...
-tasks_[id] = std::async(
+tasks[id] = std::async(
   launch::async,
-  [=] {return src_.load(id);}
+  [id] {return load_tile(id);}
 );
   \end{lstlisting}
   \begin{itemize}
@@ -110,16 +103,11 @@ tasks_[id] = std::async(
 
   \begin{onlyenv}<4>
   \begin{lstlisting}[style=cppcode]
-class tile_widget {
+map<tile_id, pc::future<QImage>> tasks;
 ...
-private:
-  tile_source src_;
-  map<tile_id, pc::future<QImage>> tasks_;
-};
-...
-tasks_[id] = pc::async(
+tasks[id] = pc::async(
   QThreadPool::globalInstance(),
-  [=] {return src_.load(id);}
+  [id] {return load_tile(id);}
 );
   \end{lstlisting}
   \begin{itemize}
@@ -128,6 +116,27 @@ tasks_[id] = pc::async(
   \end{onlyenv}
 
 \end{frame}
+
+\begin{frame}[fragile,t]{Executors}
+ \begin{itemize}
+   \item Откуда \texttt{pc::async} знает про QThreadPool?
+  \end{itemize}
+  \begin{onlyenv}<2>
+   \begin{lstlisting}[style=cppcode]
+namespace portable_concurrency {
+template <>
+struct is_executor<QThreadPool*>: std::true_type {};
+} // namespace portable_concurrency
+
+// ADL
+void post(
+  QThreadPool* pool,
+  pc::unique_function<void()> task
+);
+   \end{lstlisting}
+  \end{onlyenv}
+\end{frame}
+
 
 \begin{frame}{Спасибо за внимание}
 \centerline{\includegraphics[height=4.5cm]{question_mark_blue.png}}
