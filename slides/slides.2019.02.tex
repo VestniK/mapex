@@ -65,22 +65,62 @@
  \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile,t]{Загружаем тайлы}
-  \begin{onlyenv}<1>
-  \begin{lstlisting}[style=cppcode]
+\begin{frame}[fragile,t]{\texttt{future} в UI потоке}
+\begin{onlyenv}<1>
+{\em Q:} Когда мы хотим запускать асинронные задачи?
+
+{\em A:} Кода нам нельзя блокировать текущий поток.
+
+{\em Q:} Что мы можем сделать с \texttt{future} на результат асинхронной задачи?
+
+{\em A:} Заблокироваться чтобы получить результат.
+\end{onlyenv}
+\begin{onlyenv}<2->
+ \begin{itemize}
+  \item<2-> Есть задачи по загрузке тайлов
+  \item<3-> Есть загруженные тайлы
+  \item<4-> Перед отрисовкой хотим забирать готовые тайлы без блокировок
+ \end{itemize}
+\begin{onlyenv}<2>
+ \begin{lstlisting}[style=cppcode]
 struct tile_id {
   int tx;
   int ty;
   int z_level;
 };
 
+map<tile_id, future<QImage>> tasks;
+ \end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+map<tile_id, future<QImage>> tasks;
+map<tile_id, QImage> tiles;
+ \end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<4>
+ \begin{lstlisting}[style=cppcode]
+map<tile_id, future<QImage>> tasks;
+map<tile_id, QImage> tiles;
+
+for (auto [id, task]: tasks) {
+  if (task.is_ready())
+    tiles[id] = task.get();
+}
+ \end{lstlisting}
+\end{onlyenv}
+\end{onlyenv}
+\end{frame}
+
+\begin{frame}[fragile,t]{Загружаем тайлы}
+ \begin{onlyenv}<1>
+  \begin{lstlisting}[style=cppcode]
 QImage load_tile(tile_id id);
   \end{lstlisting}
   \begin{itemize}
    \item Пусть синхронная функция загрузки у нас уже есть
   \end{itemize}
   \end{onlyenv}
-
   \begin{onlyenv}<2-3>
   \begin{lstlisting}[style=cppcode]
 map<tile_id, std::future<QImage>> tasks;
@@ -100,7 +140,6 @@ tasks[id] = std::async(
    \end{onlyenv}
   \end{itemize}
   \end{onlyenv}
-
   \begin{onlyenv}<4>
   \begin{lstlisting}[style=cppcode]
 map<tile_id, pc::future<QImage>> tasks;
@@ -114,7 +153,6 @@ tasks[id] = pc::async(
    \item Перейдём на \texttt{pc::async}
   \end{itemize}
   \end{onlyenv}
-
 \end{frame}
 
 \begin{frame}[fragile,t]{Executors}
@@ -156,8 +194,8 @@ void post(
  \begin{itemize}[<+->]
   \item Мы хотим работать с Qt сетью через \texttt{future}
   \item Но она асинхронно работает через сигналы
+  \item На помощь приходит \texttt{promise}
  \end{itemize}
-
  \begin{onlyenv}<-2>
  \begin{lstlisting}[style=cppcode]
 future<QNetworkReply*> send_requiest(
@@ -166,7 +204,7 @@ future<QNetworkReply*> send_requiest(
  \end{lstlisting}
  \end{onlyenv}
  \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
+  \begin{lstlisting}[style=cppcode]
 class promised_reply: QObject {
   promise<QNetworkReply*> p_;
   void on_reply_finished() {
@@ -176,7 +214,7 @@ class promised_reply: QObject {
     p_.set_error(sender()->error());
   }
 };
- \end{lstlisting}
+  \end{lstlisting}
  \end{onlyenv}
 \end{frame}
 
@@ -194,7 +232,6 @@ auto f = async(
 );
  \end{lstlisting}
  \end{onlyenv}
-
  \begin{onlyenv}<3>
  \begin{lstlisting}[style=cppcode]
 QNetworkAccessManager nm;
@@ -205,6 +242,78 @@ future<QNetworkReply*> f = async(
  \end{onlyenv}
 \end{frame}
 
+\begin{frame}[fragile,t]{Цепочки задач}
+ \begin{onlyenv}<1>
+ \begin{lstlisting}[style=cppcode]
+QUrl get_tile_url(tile_id);
+QImage parse_image(QIODevice*);
+
+tasks[id] = async(&nm,
+  [&nm, id] { return send_reques(nm, get_tile_url(id)); }
+);
+ \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<2>
+ \begin{lstlisting}[style=cppcode]
+QUrl get_tile_url(tile_id);
+QImage parse_image(QIODevice*);
+
+tasks[id] = async(&nm,
+  [&nm, id] { return send_reques(nm, get_tile_url(id)); }
+).next(QThreadPool::globalInstance(),
+  [](QNetworkReply* reply) { return parse_image(reply); }
+);
+ \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+QUrl get_tile_url(tile_id);
+QImage parse_image(QIODevice*);
+
+tasks[id] = async(&nm,
+  [&nm, id] { return send_reques(nm, get_tile_url(id)); }
+).next(QThreadPool::globalInstance(),
+  [](QNetworkReply* reply) { return parse_image(reply); }
+).then(this,
+  [this](future<QImage> f) { update(); return f; }
+);
+ \end{lstlisting}
+ \end{onlyenv}
+\end{frame}
+
+\begin{frame}[fragile,t]{Отмена задач}
+ \begin{itemize}[<+->]
+  \item Нужен ли \texttt{parse\_image} для уже невидимых тайлов?
+  \item А может нужно прервать саму из загрузку?
+  \item А что делать с очень долго выполняющимися задачами?
+ \end{itemize}
+ \begin{onlyenv}<2>
+ \begin{lstlisting}[style=cppcode]
+QNetworkReply* reply = nm.get(url);
+promise<QNetworkReply*> p{
+  canceller_arg, [reply] {reply->abort();}
+};
+ \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+future<T> f;
+future<R> res = f.then([](promise<R> p, future<T> f) {
+  not_too_long_op1();
+  if (!p.is_awaiten()) return;
+  not_too_long_op2();
+});
+ \end{lstlisting}
+ \end{onlyenv}
+\end{frame}
+
+\begin{frame}{Параллельная генерализация POI}
+ ?
+\end{frame}
+
+\begin{frame}{Загружаем POI}
+ ?
+\end{frame}
 
 \begin{frame}{Спасибо за внимание}
 \centerline{\includegraphics[height=4.5cm]{question_mark_blue.png}}
