@@ -152,11 +152,59 @@ void post(
  \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Сетевые запросы}
+\begin{frame}[fragile,t]{Сетевые запросы и \texttt{promise}}
+ \begin{itemize}[<+->]
+  \item Мы хотим работать с Qt сетью через \texttt{future}
+  \item Но она асинхронно работает через сигналы
+ \end{itemize}
+
+ \begin{onlyenv}<-2>
  \begin{lstlisting}[style=cppcode]
-future<unique_ptr<QNetworkReply>> send_requiest(QNetworkAccessManager, QUrl);
+future<QNetworkReply*> send_requiest(
+  QNetworkAccessManager, QUrl
+);
  \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+class promised_reply: QObject {
+  promise<QNetworkReply*> p_;
+  void on_reply_finished() {
+    p_.set_value(sender());
+  }
+  void on_reply_error() {
+    p_.set_error(sender()->error());
+  }
+};
+ \end{lstlisting}
+ \end{onlyenv}
 \end{frame}
+
+\begin{frame}[fragile,t]{\texttt{future<future<future<T>{}>{}>}}
+ \begin{itemize}[<+->]
+  \item Звать \texttt{send\_request} можно только в сетевом потоке
+  \item Какой тип вернёт нам \texttt{async}?
+  \item \texttt{future<future<T>{}>} сворачивается в \texttt{future<T>}
+ \end{itemize}
+ \begin{onlyenv}<2>
+ \begin{lstlisting}[style=cppcode]
+QNetworkAccessManager nm;
+auto f = async(
+  &nm, [&nm] {return send_request(nm, url);}
+);
+ \end{lstlisting}
+ \end{onlyenv}
+
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+QNetworkAccessManager nm;
+future<QNetworkReply*> f = async(
+  &nm, [&nm] {return send_request(nm, url);}
+);
+ \end{lstlisting}
+ \end{onlyenv}
+\end{frame}
+
 
 \begin{frame}{Спасибо за внимание}
 \centerline{\includegraphics[height=4.5cm]{question_mark_blue.png}}
