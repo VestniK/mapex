@@ -119,10 +119,11 @@ tasks[id] = pc::async(
 
 \begin{frame}[fragile,t]{Executors}
  \begin{itemize}
-   \item Откуда \texttt{pc::async} знает про QThreadPool?
-  \end{itemize}
-  \begin{onlyenv}<2>
-   \begin{lstlisting}[style=cppcode]
+  \item<1-> Откуда \texttt{pc::async} знает про \texttt{QThreadPool}?
+  \item<3> Так же расскажем ему про \texttt{QObject}
+ \end{itemize}
+ \begin{onlyenv}<2>
+  \begin{lstlisting}[style=cppcode]
 namespace portable_concurrency {
 template <>
 struct is_executor<QThreadPool*>: std::true_type {};
@@ -133,10 +134,29 @@ void post(
   QThreadPool* pool,
   pc::unique_function<void()> task
 );
-   \end{lstlisting}
-  \end{onlyenv}
+  \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<3>
+  \begin{lstlisting}[style=cppcode]
+namespace portable_concurrency {
+template <>
+struct is_executor<QObject*>: std::true_type {};
+} // namespace portable_concurrency
+
+// ADL
+void post(
+  QObject* pool,
+  pc::unique_function<void()> task
+);
+  \end{lstlisting}
+ \end{onlyenv}
 \end{frame}
 
+\begin{frame}[fragile,t]{Сетевые запросы}
+ \begin{lstlisting}[style=cppcode]
+future<unique_ptr<QNetworkReply>> send_requiest(QNetworkAccessManager, QUrl);
+ \end{lstlisting}
+\end{frame}
 
 \begin{frame}{Спасибо за внимание}
 \centerline{\includegraphics[height=4.5cm]{question_mark_blue.png}}
