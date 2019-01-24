@@ -69,6 +69,11 @@ void tile_widget::paintEvent(QPaintEvent* event) {
   event->accept();
 }
 
+void tile_widget::resizeEvent(QResizeEvent* event) {
+  on_viewport_change();
+  event->accept();
+}
+
 void tile_widget::wheelEvent(QWheelEvent* event) {
   if (event->orientation() != Qt::Vertical)
     return QWidget::wheelEvent(event);
