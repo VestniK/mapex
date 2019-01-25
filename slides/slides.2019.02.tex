@@ -48,7 +48,7 @@
 
 \begin{frame}[t]{Кратко обо мне}
  \begin{itemize}[<+->]
-  \item Работаю в команде 3D карыт мобильной верси 2ГИС
+  \item Работаю в команде 3D карты мобильной версии 2ГИС
   \item На последних трёх проектах был недоволен самописными API передачи данных между асинхронными задачами
   \item Написал свою реализацию \texttt{future/promise} API на базе Concurrency~TS \url{https://github.com/VestniK/portable_concurrency}
  \end{itemize}
@@ -307,12 +307,88 @@ future<R> res = f.then([](promise<R> p, future<T> f) {
  \end{onlyenv}
 \end{frame}
 
-\begin{frame}{Параллельная генерализация POI}
- ?
+\begin{frame}[fragile,t]{Параллельная генерализация POI}
+ \begin{itemize}[<+->]
+  \item Есть два приоритета ``рекламные/обычные''
+  \item Генерализуем разные приоритеты независимо
+  \item А затем объединяем результат
+ \end{itemize}
+ \begin{onlyenv}<2>
+ \begin{lstlisting}[style=cppcode]
+vector<geo_point> generalize(vector<geo_point>, int z_level);
+
+vector<geo_point> adv;
+vector<geo_point> reg;
+auto f_adv = async(QThreadPool::globalInstance(),
+  [=] {return generalize(adv, z_level);});
+auto f_reg = async(QThreadPool::globalInstance(),
+  [=] {return generalize(reg, z_level);});
+ \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+using points = vector<geo_point>
+auto f = when_all(f_adv, f_reg)
+  .next([](tuple<future<points>, future<points>> ready) {
+    points adv = get<0>(ready).get();
+    points reg = get<1>(ready).get();
+    // ...
+  });
+ \end{lstlisting}
+ \end{onlyenv}
 \end{frame}
 
-\begin{frame}{Загружаем POI}
- ?
+\begin{frame}[fragile,t]{Загружаем POI}
+ \begin{itemize}[<+->]
+  \item База POI загружается по сети и кэшируется локально
+  \item Включение отображения POI должно происходить быстро
+  \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
+ \end{itemize}
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+future<points> load_poi();
+points fetch_poi_cache();
+
+auto f = when_any(
+  load_poi()
+  async(QThreadPool::globalInstance(), fetch_poi_cache())
+);
+ \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<4>
+ \begin{lstlisting}[style=cppcode]
+future<
+  when_any_result<
+    tuple<future<points>, future<points>>
+  >
+>
+ \end{lstlisting}
+ \end{onlyenv}
+ \begin{onlyenv}<5>
+ \begin{lstlisting}[style=cppcode]
+template<typename Sequence>
+struct when_any_result {
+  size_t index;
+  Sequence futures;
+>
+ \end{lstlisting}
+ \end{onlyenv}
+\end{frame}
+
+\begin{frame}[fragile,t]{Стойте! Я не хочу это отменять...}
+ \begin{itemize}[<+->]
+  \item Кэш всегда отвечает первым
+  \item \texttt{future} на результат загрузки по сети разрушается
+  \item Хочется при этом не отменять загрузку
+ \end{itemize}
+ \begin{onlyenv}<3>
+ \begin{lstlisting}[style=cppcode]
+auto f = when_any(
+  load_poi().detach()
+  async(QThreadPool::globalInstance(), fetch_poi_cache())
+);
+ \end{lstlisting}
+ \end{onlyenv}
 \end{frame}
 
 \begin{frame}{Спасибо за внимание}
