@@ -26,6 +26,7 @@ struct tile_id {
 class tile_widget final : public QWidget {
   Q_OBJECT
   Q_PROPERTY(int z_level READ z_level WRITE set_z_level)
+  Q_PROPERTY(bool poi_visible READ is_poi_visible WRITE set_poi_visible)
 public:
   using executor_type = QObject*;
 
@@ -39,7 +40,12 @@ public:
     update();
   }
 
+  bool is_poi_visible() const noexcept { return poi_visible_; }
+
   executor_type executor() noexcept { return this; }
+
+public slots:
+  void set_poi_visible(bool val);
 
 protected:
   void paintEvent(QPaintEvent* event) override;
@@ -61,4 +67,5 @@ private:
   int z_level_ = 12;
   int wheel_accum_ = 0;
   std::optional<QPoint> last_mouse_move_pos_;
+  bool poi_visible_ = false;
 };

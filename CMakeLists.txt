@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.9)
 project(mapex)
 enable_testing()
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
 
 add_library(mapex.impl STATIC
   mapex/deltapack.hpp
@@ -33,7 +34,10 @@ PUBLIC
   Qt5::Network
 )
 
-add_executable(mapex mapex/main.cpp)
+add_executable(mapex
+  mapex/main.cpp
+  mapex/controls.ui
+)
 target_link_libraries(mapex PRIVATE mapex.impl)
 
 set(TESTS_SRC

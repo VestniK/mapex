@@ -55,6 +55,12 @@ void tile_widget::center_at(geo_point pos) {
   on_viewport_change();
 }
 
+void tile_widget::set_poi_visible(bool val) {
+  if (poi_visible_ == val)
+    return;
+  poi_visible_ = val;
+}
+
 void tile_widget::paintEvent(QPaintEvent* event) {
   check_finished_tasks();
 
