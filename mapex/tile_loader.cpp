@@ -25,7 +25,13 @@ QUrl get_tile_url(int x, int y, int z_level) {
 class promised_reply final : public QObject {
   Q_OBJECT
 public:
-  promised_reply(QNetworkReply* reply, QObject* parent = nullptr) : QObject{parent} {
+  promised_reply(QNetworkReply* reply, QObject* parent = nullptr)
+      : QObject{parent}, promise_{pc::canceler_arg, [reply = QPointer<QNetworkReply>{reply}, nm = reply->manager()] {
+                                    post(nm, [reply] {
+                                      if (!reply.isNull())
+                                        reply->abort();
+                                    });
+                                  }} {
     reply->setParent(this);
     reply->setObjectName("reply");
     QMetaObject::connectSlotsByName(this);
@@ -33,7 +39,8 @@ public:
 
   [[nodiscard]] pc::future<std::unique_ptr<QNetworkReply>> get_future() { return promise_.get_future(); }
 
-  private slots : void on_reply_finished() {
+private slots:
+  void on_reply_finished() {
     deleteLater();
     if (std::exchange(promise_satisfied_, true))
       return;
