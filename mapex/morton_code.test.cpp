@@ -36,20 +36,21 @@ private:
 
 private slots:
   void encode_and_decode_point_is_identity_data() {
-      QTest::addColumn<uint32_t>("x");
-      QTest::addColumn<uint32_t>("y");
+    QTest::addColumn<uint32_t>("x");
+    QTest::addColumn<uint32_t>("y");
 
-      std::uniform_int_distribution<uint32_t> dist;
-      for (int i = 0; i < 100; ++i) {
-        const uint32_t x = dist(rnd_engine_);
-        const uint32_t y = dist(rnd_engine_);
-        QTest::addRow("{x: %llu, x: %llu}", static_cast<unsigned long long>(x), static_cast<unsigned long long>(y)) << x << y;
-      }
+    std::uniform_int_distribution<uint32_t> dist;
+    for (int i = 0; i < 100; ++i) {
+      const uint32_t x = dist(rnd_engine_);
+      const uint32_t y = dist(rnd_engine_);
+      QTest::addRow("{x: %llu, y: %llu}", static_cast<unsigned long long>(x), static_cast<unsigned long long>(y))
+          << x << y;
+    }
   }
   void encode_and_decode_point_is_identity() {
-      QFETCH(uint32_t, x);
-      QFETCH(uint32_t, y);
-      QCOMPARE(from_morton(morton_code({x, y})), (point{x, y}));
+    QFETCH(uint32_t, x);
+    QFETCH(uint32_t, y);
+    QCOMPARE(from_morton(morton_code({x, y})), (point{x, y}));
   }
 
   void groups_of_4_bits_interleaved_correctly_data() { all_4bit_groups(); }
