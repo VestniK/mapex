@@ -55,25 +55,25 @@ constexpr uint64_t load_masks[] = {interleave(uint32_t{1} << 31) << 1, interleav
 constexpr uint64_t untoched_bits_mask = interleave(~uint32_t{0}) << 1;
 constexpr unsigned u64_bits_count = 64;
 
-// Operation actually stores certain value in the current axis bits but `load` name is used in bigmin/litmax algorythms
+// Operation actually stores certain bits in the current axis bits but `load` name is used in bigmin/litmax algorythms
 // explanation in the original work introducing them: Tropf, H.; Herzog, H. (1981), "Multidimensional Range Search in
 // Dynamically Balanced Trees", Angewandte Informatik, 2: 71–77.
 constexpr uint64_t load(uint64_t mask, unsigned bit_pos, uint64_t code) noexcept {
   mask = mask >> (u64_bits_count - 1 - bit_pos);
-  const uint64_t zero_bits_reset = code & ((untoched_bits_mask >> (bit_pos % 2)) | mask);
+  const uint64_t zero_bits_reset = code & ((untoched_bits_mask >> (bit_pos % 2)) | (~uint64_t{1} << bit_pos) | mask);
   return zero_bits_reset | mask;
 }
 
 } // namespace detail
 
 constexpr uint64_t bigmin(uint64_t division_point, uint64_t min, uint64_t max) noexcept {
-  assert(division_point <= max);
+  assert(division_point < max);
   assert(min <= max);
   // min and max must be codes of rect corners with minimal coordinate values and maximal coordinate values.
   assert(decode(min).x <= decode(max).x);
   assert(decode(min).y <= decode(max).y);
   uint64_t res = max;
-  for (unsigned bit_pos = detail::u64_bits_count - 1; bit_pos < detail::u64_bits_count; --bit_pos) {
+  for (int bit_pos = detail::u64_bits_count - 1; bit_pos >= 0; --bit_pos) {
     const uint64_t examined_bits =
         (((division_point >> bit_pos) & 1) << 2) | (((min >> bit_pos) & 1) << 1) | ((max >> bit_pos) & 1);
     switch (examined_bits) {
