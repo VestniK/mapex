@@ -10,11 +10,13 @@ add_library(mapex.impl STATIC
   mapex/executors.hpp
   mapex/executors.cpp
   mapex/geo_point.hpp
-  mapex/qnetwork_category.cpp
-  mapex/qnetwork_category.hpp
   mapex/morton_code.hpp
   mapex/network_thread.hpp
   mapex/network_thread.cpp
+  mapex/poidb.cpp
+  mapex/poidb.hpp
+  mapex/qnetwork_category.cpp
+  mapex/qnetwork_category.hpp
   mapex/tile_loader.hpp
   mapex/tile_loader.cpp
   mapex/tile_widget.hpp

@@ -1,9 +1,16 @@
 #pragma once
 
+#include <memory>
+
 #include <QtCore/QThread>
 #include <QtNetwork/QNetworkAccessManager>
 
+#include <portable_concurrency/future_fwd>
+
 #include <mapex/executors.hpp>
+
+class QNetworkReply;
+class QUrl;
 
 class network_thread {
 public:
@@ -25,3 +32,5 @@ private:
   QThread thread_;
   QNetworkAccessManager nm_;
 };
+
+[[nodiscard]] pc::future<std::unique_ptr<QNetworkReply>> send_request(QNetworkAccessManager& nm, const QUrl& url);

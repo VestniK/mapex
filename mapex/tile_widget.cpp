@@ -59,6 +59,8 @@ void tile_widget::set_poi_visible(bool val) {
   if (poi_visible_ == val)
     return;
   poi_visible_ = val;
+  if (poi_visible_)
+    poi_.reload(*net_);
 }
 
 void tile_widget::paintEvent(QPaintEvent* event) {

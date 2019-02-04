@@ -10,6 +10,7 @@
 
 #include <mapex/executors.hpp>
 #include <mapex/geo_point.hpp>
+#include <mapex/poidb.hpp>
 
 class network_thread;
 
@@ -61,6 +62,7 @@ private:
 
 private:
   network_thread* net_ = nullptr;
+  poidb poi_;
   std::map<tile_id, QImage> images_;
   std::map<tile_id, pc::future<QImage>> tasks_;
   QPointF projected_center_;
