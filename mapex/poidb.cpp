@@ -31,7 +31,11 @@ QString poi_cache_path() {
 poidb::poidb(QObject* parent) : QObject(parent) {}
 
 void poidb::reload(network_thread& net) {
-  std::array<pc::future<poi_data>, 2> futures = {load_poi(net).detach(), fetch_poi_cache()};
+  auto notify = [this](pc::future<poi_data> f) {
+    QMetaObject::invokeMethod(this, &poidb::on_loaded, Qt::QueuedConnection);
+    return f;
+  };
+  std::array<pc::future<poi_data>, 2> futures = {load_poi(net).then(notify).detach(), fetch_poi_cache()};
   load_future_ = pc::when_any(futures.begin(), futures.end())
                      .next([](pc::when_any_result<std::vector<pc::future<poi_data>>> res) {
                        poi_data data = res.futures[res.index].get(); // TODO: handle network errors here
@@ -39,10 +43,7 @@ void poidb::reload(network_thread& net) {
                          return std::move(res.futures[0]);
                        return pc::make_ready_future(std::move(data));
                      })
-                     .then([this](auto f) {
-                       QMetaObject::invokeMethod(this, &poidb::on_loaded, Qt::QueuedConnection);
-                       return f;
-                     });
+                     .then(notify);
 }
 
 void poidb::on_loaded() {
