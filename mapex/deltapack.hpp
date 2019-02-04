@@ -6,11 +6,11 @@
 
 namespace varint {
 
-template<typename InputIter, typename OutIter>
+template <typename InputIter, typename OutIter>
 size_t pack(InputIter first, InputIter last, OutIter encoded) {
   size_t res = 0;
-  for (auto it = first; it != last; ++it, ++encoded, ++res) {
-    uint64_t val = *it;
+  for (; first != last; ++first, ++encoded, ++res) {
+    uint64_t val = *first;
     for (; val > 0x7f; val >>= 7, ++encoded, ++res)
       *encoded = static_cast<char>(0x80 | (val & 0x7f));
     *encoded = static_cast<char>(val);
@@ -18,12 +18,12 @@ size_t pack(InputIter first, InputIter last, OutIter encoded) {
   return res;
 }
 
-template<typename InputIter, typename OutIter>
+template <typename InputIter, typename OutIter>
 void unpack(InputIter first, InputIter last, OutIter encoded) {
   uint64_t val = 0;
   unsigned shift = 0;
-  for (auto it = first; it != last; ++it) {
-    uint64_t bt = static_cast<uint8_t>(*it);
+  for (; first != last; ++first) {
+    uint64_t bt = static_cast<uint8_t>(*first);
     val |= (bt & 0x7f) << shift;
     shift += 7;
     if (!(bt & 0x80)) {
@@ -33,6 +33,25 @@ void unpack(InputIter first, InputIter last, OutIter encoded) {
       ++encoded;
     }
   }
+}
+
+template <typename InputIter, typename OutIter>
+InputIter unpack_n(InputIter first, InputIter last, size_t count, OutIter encoded) {
+  uint64_t val = 0;
+  unsigned shift = 0;
+  for (; first != last && count > 0; ++first) {
+    uint64_t bt = static_cast<uint8_t>(*first);
+    val |= (bt & 0x7f) << shift;
+    shift += 7;
+    if (!(bt & 0x80)) {
+      *encoded = val;
+      val = 0;
+      shift = 0;
+      ++encoded;
+      --count;
+    }
+  }
+  return first;
 }
 
 } // namespace varint
@@ -80,6 +99,11 @@ void pack(InputIt first, InputIt last, OutIt dest) {
 template <typename InputIt, typename OutIt>
 void unpack(InputIt first, InputIt last, OutIt dest) {
   varint::unpack(first, last, delta_oiter<OutIt>{dest});
+}
+
+template <typename InputIt, typename OutIt>
+InputIt unpack_n(InputIt first, InputIt last, size_t count, OutIt dest) {
+  return varint::unpack_n(first, last, count, delta_oiter<OutIt>{dest});
 }
 
 } // namespace delta

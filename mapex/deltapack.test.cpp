@@ -119,13 +119,59 @@ private slots:
     QCOMPARE(sz, encoded_.size());
   }
 
-  void unpack_packed_values_back() {
+  void delata_unpack_packed_values_back() {
     std::multiset<uint64_t> input = gen_random_sample<std::multiset>(0x10000);
     std::vector<char> packed;
     std::multiset<uint64_t> restored;
     delta::pack(input.begin(), input.end(), std::back_inserter(packed));
     delta::unpack(packed.begin(), packed.end(), std::inserter(restored, restored.end()));
     QCOMPARE(input, restored);
+  }
+
+  void varint_unpack_n_value_alows_to_unpack_remaining_input_properly_data() {
+    QTest::addColumn<size_t>("count");
+    QTest::addColumn<size_t>("total");
+
+    constexpr int total = 15;
+    for (int i = 0; i < total; ++i)
+      QTest::addRow("%d", i) << static_cast<size_t>(i) << static_cast<size_t>(total);
+  }
+  void varint_unpack_n_value_alows_to_unpack_remaining_input_properly() {
+    QFETCH(size_t, count);
+    QFETCH(size_t, total);
+
+    input_ = gen_random_sample<std::vector>(total);
+    std::vector<char> packed;
+    varint::pack(input_.begin(), input_.end(), std::back_inserter(packed));
+
+    std::vector<uint64_t> restored;
+    auto it = varint::unpack_n(packed.begin(), packed.end(), count, std::back_inserter(restored));
+    varint::unpack(it, packed.end(), std::back_inserter(restored));
+    QCOMPARE(restored, input_);
+  }
+
+  void delta_unpack_n_value_alows_to_unpack_remaining_input_properly_data() {
+    QTest::addColumn<size_t>("count");
+    QTest::addColumn<size_t>("total");
+
+    constexpr int total = 15;
+    for (int i = 0; i < total; ++i)
+      QTest::addRow("%d", i) << static_cast<size_t>(i) << static_cast<size_t>(total);
+  }
+  void delta_unpack_n_value_alows_to_unpack_remaining_input_properly() {
+    QFETCH(size_t, count);
+    QFETCH(size_t, total);
+
+    input_ = gen_random_sample<std::vector>(total);
+    std::sort(input_.begin(), input_.end());
+    std::vector<char> packed;
+    delta::pack(input_.begin(), input_.begin() + count, std::back_inserter(packed));
+    delta::pack(input_.begin() + count, input_.end(), std::back_inserter(packed));
+
+    std::vector<uint64_t> restored;
+    auto it = delta::unpack_n(packed.begin(), packed.end(), count, std::back_inserter(restored));
+    delta::unpack(it, packed.end(), std::back_inserter(restored));
+    QCOMPARE(restored, input_);
   }
 
 private:
