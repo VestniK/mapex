@@ -3,6 +3,7 @@
 
 #include <QtCore/QDir>
 #include <QtCore/QMetaMethod>
+#include <QtCore/QRectF>
 #include <QtCore/QSaveFile>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QThreadPool>
@@ -15,6 +16,11 @@
 #include <mapex/network_thread.hpp>
 #include <mapex/poidb.hpp>
 
+struct poi_data {
+  std::vector<uint64_t> advertized;
+  std::vector<uint64_t> regular;
+};
+
 namespace {
 
 QString poi_cache_path() {
@@ -25,6 +31,41 @@ QString poi_cache_path() {
   }
   return QDir{cache_dir}.filePath("poi.bin");
 }
+
+poi_data read_poi(const QString& path) {
+  poi_data res;
+  if (!QFileInfo::exists(path))
+    return res;
+
+  std::filebuf in;
+  if (!in.open(path.toLocal8Bit().constData(), std::ios_base::in))
+    throw std::system_error{errno, std::system_category(), "open: " + path.toStdString()};
+
+  uint64_t adv_count;
+  auto it = varint::unpack_n(std::istreambuf_iterator{&in}, {}, 1, &adv_count);
+  it = delta::unpack_n(it, {}, adv_count, std::back_inserter(res.advertized));
+  delta::unpack(it, {}, std::back_inserter(res.regular));
+  return res;
+}
+
+pc::future<poi_data> load_poi(network_thread& net) {
+  return net.send_request(QUrl("https://raw.githubusercontent.com/VestniK/mapex/master/poi.bin"))
+      .next([](std::unique_ptr<QNetworkReply> reply) {
+        QSaveFile sf{poi_cache_path()};
+        if (!sf.open(QIODevice::WriteOnly)) {
+          throw std::system_error{
+              std::make_error_code(std::errc::no_such_file_or_directory), "create cache file"}; // TODO: better error
+        }
+        const QByteArray content = reply->readAll();
+        sf.write(content);
+        if (!sf.commit())
+          throw std::system_error{std::make_error_code(std::errc::io_error), "save cache file"}; // TODO: better error
+
+        return pc::async(QThreadPool::globalInstance(), read_poi, poi_cache_path());
+      });
+}
+
+pc::future<poi_data> fetch_poi_cache() { return pc::async(QThreadPool::globalInstance(), read_poi, poi_cache_path()); }
 
 } // namespace
 
@@ -46,48 +87,20 @@ void poidb::reload(network_thread& net) {
                      .then(notify);
 }
 
+pc::future<std::vector<marker>> poidb::generalize(const QRectF& viewport, int z_level) const {
+  std::array<pc::future<std::vector<marker>>, 2> futures = {
+      pc::async(QThreadPool::globalInstance(),
+          [] {
+            return std::vector<marker>{{marker{QPointF{0.7303155547905815, 0.31611348163573294}}}};
+          }),
+      pc::async(QThreadPool::globalInstance(), [] { return std::vector<marker>{}; })};
+  return pc::when_all(std::make_move_iterator(futures.begin()), std::make_move_iterator(futures.end()))
+      .next([](std::vector<pc::future<std::vector<marker>>> results) { return results[0].get(); });
+}
+
 void poidb::on_loaded() {
   if (!load_future_.valid() || !load_future_.is_ready())
     return;
-  data_ = load_future_.get();
+  data_ = std::make_shared<poi_data>(load_future_.get());
   emit updated();
-}
-
-pc::future<poidb::poi_data> poidb::load_poi(network_thread& net) {
-  return pc::async(net.executor(), [&net]() {
-    return send_request(net.network_manager(), QUrl("https://raw.githubusercontent.com/VestniK/mapex/master/poi.bin"))
-        .next([](std::unique_ptr<QNetworkReply> reply) {
-          QSaveFile sf{poi_cache_path()};
-          if (!sf.open(QIODevice::WriteOnly)) {
-            throw std::system_error{
-                std::make_error_code(std::errc::no_such_file_or_directory), "create cache file"}; // TODO: better error
-          }
-          const QByteArray content = reply->readAll();
-          sf.write(content);
-          if (!sf.commit())
-            throw std::system_error{std::make_error_code(std::errc::io_error), "save cache file"}; // TODO: better error
-
-          return pc::async(QThreadPool::globalInstance(), read_poi, poi_cache_path());
-        });
-  });
-}
-
-pc::future<poidb::poi_data> poidb::fetch_poi_cache() {
-  return pc::async(QThreadPool::globalInstance(), read_poi, poi_cache_path());
-}
-
-poidb::poi_data poidb::read_poi(const QString& path) {
-  poidb::poi_data res;
-  if (!QFileInfo::exists(path))
-    return res;
-
-  std::filebuf in;
-  if (!in.open(path.toLocal8Bit().constData(), std::ios_base::in))
-    throw std::system_error{errno, std::system_category(), "open: " + path.toStdString()};
-
-  uint64_t adv_count;
-  auto it = varint::unpack_n(std::istreambuf_iterator{&in}, {}, 1, &adv_count);
-  it = delta::unpack_n(it, {}, adv_count, std::back_inserter(res.advertized));
-  delta::unpack(it, {}, std::back_inserter(res.regular));
-  return res;
 }

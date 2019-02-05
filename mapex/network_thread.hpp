@@ -14,8 +14,6 @@ class QUrl;
 
 class network_thread {
 public:
-  using executor_type = QObject*;
-
   network_thread();
   ~network_thread();
 
@@ -23,14 +21,9 @@ public:
   void shotdown();
 
   /// @threadsafe
-  executor_type executor() noexcept { return &nm_; }
-
-  /// Must only be used inside a task posted to `this->executor()`
-  QNetworkAccessManager& network_manager() noexcept { return nm_; }
+  [[nodiscard]] pc::future<std::unique_ptr<QNetworkReply>> send_request(const QUrl& url);
 
 private:
   QThread thread_;
   QNetworkAccessManager nm_;
 };
-
-[[nodiscard]] pc::future<std::unique_ptr<QNetworkReply>> send_request(QNetworkAccessManager& nm, const QUrl& url);

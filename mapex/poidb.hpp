@@ -1,12 +1,20 @@
 #pragma once
 
-#include <vector>
+#include <memory>
 
 #include <QtCore/QObject>
+#include <QtCore/QPointF>
 
 #include <portable_concurrency/future_fwd>
 
 class network_thread;
+struct poi_data;
+
+struct marker {
+  QPointF point;
+  int poi_count = 1;
+  bool has_advertizers = false;
+};
 
 class poidb : public QObject {
   Q_OBJECT
@@ -15,24 +23,15 @@ public:
 
   void reload(network_thread& net);
 
+  [[nodiscard]] pc::future<std::vector<marker>> generalize(const QRectF& viewport, int z_level) const;
+
 signals:
   void updated();
-
-private:
-  struct poi_data {
-    std::vector<uint64_t> advertized;
-    std::vector<uint64_t> regular;
-  };
 
 private slots:
   void on_loaded();
 
 private:
-  static pc::future<poi_data> load_poi(network_thread& net);
-  static pc::future<poi_data> fetch_poi_cache();
-  static poi_data read_poi(const QString& path);
-
-private:
   pc::future<poi_data> load_future_;
-  poi_data data_;
+  std::shared_ptr<const poi_data> data_;
 };

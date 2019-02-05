@@ -62,9 +62,11 @@ private:
 
 } // namespace
 
-pc::future<std::unique_ptr<QNetworkReply>> send_request(QNetworkAccessManager& nm, const QUrl& url) {
-  auto* reply = new promised_reply{nm.get(QNetworkRequest{url}), &nm};
-  return reply->get_future();
+pc::future<std::unique_ptr<QNetworkReply>> network_thread::send_request(const QUrl& url) {
+  return pc::async(static_cast<QObject*>(&nm_), [nm = &nm_, url] {
+    auto* reply = new promised_reply{nm->get(QNetworkRequest{url}), nm};
+    return reply->get_future();
+  });
 }
 
 network_thread::network_thread() {

@@ -47,6 +47,7 @@ constexpr QPoint max(QPoint a, QPoint b) noexcept { return {std::max(a.x(), b.x(
 
 tile_widget::tile_widget(geo_point center, int z_level, network_thread* net, QWidget* parent)
     : QWidget{parent}, net_{net}, projected_center_{project(center)}, z_level_{z_level} {
+  connect(&poi_, &poidb::updated, this, &tile_widget::on_viewport_change);
   on_viewport_change();
 }
 
@@ -61,6 +62,11 @@ void tile_widget::set_poi_visible(bool val) {
   poi_visible_ = val;
   if (poi_visible_)
     poi_.reload(*net_);
+  else {
+    current_markers_area_ = {};
+    markers_.clear();
+    markers_future_ = {};
+  }
 }
 
 void tile_widget::paintEvent(QPaintEvent* event) {
@@ -73,6 +79,13 @@ void tile_widget::paintEvent(QPaintEvent* event) {
   for (const auto& [tile, image] : images_) {
     const auto tile_rect = QRect{QPoint{tile.x, tile.y} * tile_pixel_size, tile_size}.translated(-projected_top_left);
     painter.drawImage(tile_rect, image);
+  }
+  painter.setPen(QPen{Qt::blue, 3});
+  for (const marker& poi : markers_) {
+    const auto pin_pt = floor(poi.point * tile_pixel_size * tiles_coord_range) - projected_top_left;
+    QRect pin_rect{{}, QSize{16, 16}};
+    pin_rect.moveCenter(pin_pt);
+    painter.drawEllipse(pin_rect);
   }
   event->accept();
 }
@@ -97,6 +110,7 @@ void tile_widget::wheelEvent(QWheelEvent* event) {
   const QPointF shift = (event->posF() - rect().center()) / tile_pixel_size;
   projected_center_ += shift * ((1 << z_level_) - (1 << old_z_level)) / (1 << (old_z_level + z_level_));
   projected_center_ = squre_clamp(projected_center_, 0., 1.);
+  current_markers_area_ = {}; // invalidate markers area to force generalization request
   on_viewport_change();
 }
 
@@ -129,6 +143,18 @@ void tile_widget::mouseMoveEvent(QMouseEvent* event) {
 
 void tile_widget::on_viewport_change() {
   const int tiles_coord_range = (1 << z_level_);
+  if (poi_visible_) {
+    QRectF vp_rect{{}, QSizeF{rect().size()} / (tile_pixel_size * tiles_coord_range)};
+    vp_rect.moveCenter(projected_center_);
+    if (!current_markers_area_.contains(vp_rect)) {
+      current_markers_area_.setSize(2 * vp_rect.size());
+      current_markers_area_.moveCenter(projected_center_);
+      markers_future_ = poi_.generalize(current_markers_area_, z_level_).then(executor(), [this](auto f) {
+        update();
+        return f;
+      });
+    }
+  }
   const auto projected_top_left =
       floor(tile_pixel_size * tiles_coord_range * projected_center_) - (rect().center() - rect().topLeft());
   const QRect vp_projection = rect().translated(projected_top_left);
@@ -151,14 +177,10 @@ void tile_widget::on_viewport_change() {
         continue;
       }
 
-      // clang-format off
-      new_tasks[tid] = pc::async(net_->executor(), [tid, net = net_] {
-        return load_tile(net->network_manager(), tid.x, tid.y, tid.z_level);
-      }).then(executor(), [this](auto f) {
+      new_tasks[tid] = load_tile(*net_, tid.x, tid.y, tid.z_level).then(executor(), [this](auto f) {
         update();
         return f;
       });
-      // clang-format on
     }
   }
   std::swap(new_images, images_);
@@ -175,4 +197,7 @@ void tile_widget::check_finished_tasks() {
     images_[it->first] = it->second.get();
     it = tasks_.erase(it);
   }
+
+  if (markers_future_.valid() && markers_future_.is_ready())
+    markers_ = markers_future_.get();
 }

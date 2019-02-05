@@ -23,8 +23,8 @@ QUrl get_tile_url(int x, int y, int z_level) {
 
 } // namespace
 
-pc::future<QImage> load_tile(QNetworkAccessManager& nm, int x, int y, int z_level) {
-  return send_request(nm, get_tile_url(x, y, z_level))
+pc::future<QImage> load_tile(network_thread& net, int x, int y, int z_level) {
+  return net.send_request(get_tile_url(x, y, z_level))
       .next(QThreadPool::globalInstance(), [](std::unique_ptr<QNetworkReply> reply) {
         const auto mime = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
         if (!QImageReader::supportedMimeTypes().contains(mime))

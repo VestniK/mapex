@@ -56,17 +56,26 @@ protected:
   void mouseReleaseEvent(QMouseEvent* event) override;
   void mouseMoveEvent(QMouseEvent* event) override;
 
-private:
+private slots:
   void on_viewport_change();
+
+private:
   void check_finished_tasks();
 
 private:
   network_thread* net_ = nullptr;
+
   poidb poi_;
+  QRectF current_markers_area_;
+  pc::future<std::vector<marker>> markers_future_;
+  std::vector<marker> markers_;
+
   std::map<tile_id, QImage> images_;
   std::map<tile_id, pc::future<QImage>> tasks_;
+
   QPointF projected_center_;
   int z_level_ = 12;
+
   int wheel_accum_ = 0;
   std::optional<QPoint> last_mouse_move_pos_;
   bool poi_visible_ = false;
