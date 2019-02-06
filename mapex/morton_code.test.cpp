@@ -31,10 +31,6 @@ static_assert(morton::bigmin(~uint64_t{0} - 5, ~uint64_t{0} - 12, ~uint64_t{0}) 
 static_assert(morton::bigmin(0, morton::code({1, 1}), morton::code({3, 5})) == morton::code({1, 1}),
     "bigmin should return top left of the rect for point with code below code of the rect top left");
 
-constexpr bool is_in_rect(point pt, point rect_min, point rect_max) noexcept {
-  return pt.x >= rect_min.x && pt.y >= rect_min.y && pt.x <= rect_max.x && pt.y <= rect_max.y;
-}
-
 // clang-format off
 constexpr uint32_t values[] = {
     0b0000'0000, 0b0000'0001, 0b0000'0010, 0b0000'0011, 0b0000'0100, 0b0000'0101, 0b0000'0110, 0b0000'0111,
