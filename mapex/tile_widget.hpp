@@ -69,6 +69,7 @@ private:
   QRectF current_markers_area_;
   pc::future<std::vector<marker>> markers_future_;
   std::vector<marker> markers_;
+  std::array<QImage, 4> icons_;
 
   std::map<tile_id, QImage> images_;
   std::map<tile_id, pc::future<QImage>> tasks_;

@@ -4,6 +4,7 @@ project(mapex)
 enable_testing()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
 add_library(mapex.impl STATIC
   mapex/deltapack.hpp
@@ -39,6 +40,7 @@ PUBLIC
 add_executable(mapex
   mapex/main.cpp
   mapex/controls.ui
+  res/poi.qrc
 )
 target_link_libraries(mapex PRIVATE mapex.impl)
 

@@ -17,6 +17,7 @@ constexpr double deg2rad(double deg) noexcept { return deg * M_PI / 180.; }
 constexpr int tile_pixel_size = 256;
 constexpr int max_z_level = 16;
 constexpr QSize tile_size{tile_pixel_size, tile_pixel_size};
+constexpr QSize poi_icon_size{24, 24};
 
 QPointF project(geo_point point) noexcept {
   const double x = (static_cast<double>(point.lon) + 180.) / 360.;
@@ -46,7 +47,9 @@ constexpr QPoint max(QPoint a, QPoint b) noexcept { return {std::max(a.x(), b.x(
 } // namespace
 
 tile_widget::tile_widget(geo_point center, int z_level, network_thread* net, QWidget* parent)
-    : QWidget{parent}, net_{net}, projected_center_{project(center)}, z_level_{z_level} {
+    : QWidget{parent}, icons_({QImage{"icons:multi-poi.png"}, QImage{"icons:multi-adw.png"},
+                           QImage{"icons:single-poi.png"}, QImage{"icons:single-adw.png"}}),
+      net_{net}, projected_center_{project(center)}, z_level_{z_level} {
   connect(&poi_, &poidb::updated, this, &tile_widget::on_viewport_change);
   on_viewport_change();
 }
@@ -83,9 +86,9 @@ void tile_widget::paintEvent(QPaintEvent* event) {
   painter.setPen(QPen{Qt::blue, 3});
   for (const marker& poi : markers_) {
     const auto pin_pt = floor(poi.point * tile_pixel_size * tiles_coord_range) - projected_top_left;
-    QRect pin_rect{{}, QSize{16, 16}};
+    QRect pin_rect{{}, poi_icon_size};
     pin_rect.moveCenter(pin_pt);
-    painter.drawEllipse(pin_rect);
+    painter.drawImage(pin_rect, icons_[(poi.poi_count == 1 ? 2 : 0) | (poi.has_advertizers ? 1 : 0)]);
   }
   event->accept();
 }

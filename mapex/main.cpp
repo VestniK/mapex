@@ -1,3 +1,5 @@
+#include <QtCore/QDir>
+
 #include <QtWidgets/QApplication>
 
 #include <mapex/geo_point.hpp>
@@ -14,6 +16,7 @@ constexpr geo_point nsk_center = {82.947932_lon, 54.988053_lat};
 
 int main(int argc, char** argv) {
   QApplication app{argc, argv};
+  QDir::addSearchPath("icons", ":/icons");
 
   network_thread net_thread;
   tile_widget wnd{nsk_center, 12, &net_thread};

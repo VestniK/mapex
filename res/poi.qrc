@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>multi-adw.png</file>
+        <file>multi-poi.png</file>
+        <file>single-adw.png</file>
+        <file>single-poi.png</file>
+    </qresource>
+</RCC>
