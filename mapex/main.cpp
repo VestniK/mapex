@@ -1,4 +1,5 @@
 #include <QtCore/QDir>
+#include <QtCore/QThreadPool>
 
 #include <QtWidgets/QApplication>
 
@@ -23,6 +24,11 @@ int main(int argc, char** argv) {
   Ui::map_contorls controls;
   controls.setupUi(&wnd);
   QObject::connect(controls.showPOI, &QPushButton::toggled, &wnd, &tile_widget::set_poi_visible);
+  QObject::connect(&app, &QCoreApplication::aboutToQuit, [&net_thread] {
+    net_thread.shotdown();
+    QThreadPool::globalInstance()->clear();
+    QThreadPool::globalInstance()->waitForDone();
+  });
 
   wnd.show();
   return app.exec();
