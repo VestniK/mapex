@@ -55,7 +55,7 @@
 
 \begin{frame}[fragile,t]{\texttt{std::future} FAQ}
 
-{\em Q:} Когда мы хотим запускать асинронные задачи?
+{\em Q:} Когда мы хотим запускать асинхронные задачи?
 
 {\em A:} Кода нам нельзя блокировать текущий поток.
 
@@ -78,8 +78,8 @@
 \begin{frame}[t]{Давайте напишем прогу которая...}
  \begin{itemize}[<+->]
   \item Рисует карту на базе web-тайлов
-  \item Рисует много маркеров разных приоритетов
-  \item Не использует мутексов
+  \item Рисует много маркеров POI\footnote{POI - Point Of Interest} разных приоритетов
+  \item Не использует mutex...
   \item Не зависает и не падает на выходе
   \item Лежит на гитхабе: \\ \footnotesize{\url{https://github.com/VestniK/mapex}}
  \end{itemize}
@@ -272,7 +272,7 @@ slots:
 \end{onlyenv}
 \begin{onlyenv}<5>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-future<QNetworkReply*> send_requiest(
+future<QNetworkReply*> send_request(
   QNetworkAccessManager nm, QUrl url
 ) {
   promised_reply* listener = new promised_reply;
@@ -290,7 +290,7 @@ future<QNetworkReply*> send_requiest(
 
 \begin{frame}[fragile,t]{\texttt{future<future<future<T>{}>{}>}}
 \begin{onlyenv}<2>
-Звать \texttt{send\_request} можно только в сетевом потоке
+Вызывать \texttt{send\_request} можно только в сетевом потоке
 \end{onlyenv}
 \begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode]
@@ -377,7 +377,7 @@ tasks[id] = async(&nm, [&nm, id] {
 \end{onlyenv}
 \begin{onlyenv}<3>
 
-{\em Q:} А может нужно прервать саму из загрузку?
+{\em Q:} А может нужно прервать саму загрузку тайлов?
 
 {\em A:} Обработчик отмены назавершённой задачи можно передать в конструктор \texttt{promise}.\\
 \footnotesize{Осторожно, поток вызова обработчика неопределён.}
@@ -527,7 +527,7 @@ template<typename T>
 future<T> future<T>::detach();
 
 auto f = when_any(
-  load_poi().detach()
+  load_poi().detach(),
   async(pool, fetch_poi_cache())
 );
 \end{lstlisting}
@@ -543,13 +543,11 @@ auto f = async(pool, foo)
 \end{frame}
 
 \begin{frame}[fragile,t]{В итоге мы имеем}
-\begin{onlyenv}<2->
 \begin{itemize}[<+->]
  \item Управление потоками в приложении отделено от описания решаемой задачи
  \item Код описывает ациклический граф зависимостей между задачами исполняющимися на разных потоках в правильной последовательности
  \item Можно легко превращать синхронный код в асинхронный
 \end{itemize}
-\end{onlyenv}
 \end{frame}
 
 \begin{frame}{Спасибо за внимание}
