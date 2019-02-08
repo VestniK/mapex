@@ -1,4 +1,4 @@
-\documentclass[aspectratio=169,pdf,hyperref={unicode},14pt]{beamer}
+\documentclass[aspectratio=169,pdf,hyperref={unicode},17pt]{beamer}
 
 \usepackage[T2A]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -47,26 +47,14 @@
 \end{frame}
 
 \begin{frame}[t]{Кратко обо мне}
- \begin{itemize}[<+->]
+ \begin{itemize}
   \item Работаю в команде 3D карты мобильной версии 2ГИС
-  \item На последних трёх проектах был недоволен самописными API передачи данных между асинхронными задачами
-  \item Написал свою реализацию \texttt{future/promise} API на базе Concurrency~TS \url{https://github.com/VestniK/portable_concurrency}
+  \item Написал свою реализацию \texttt{future/promise} \footnotesize{\url{https://github.com/VestniK/portable_concurrency}}
  \end{itemize}
 \end{frame}
 
-\begin{frame}[t]{Давайте напишем прогу которая...}
- \begin{itemize}[<+->]
-  \item Рисует карту на базе web-тайлов
-  \item Отображает большое количество маркеров разных приоритетов
-  \item Выполняет разные задачи на разных потоках
-  \item Не использует мутексов
-  \item Не зависает и не падает на выходе
-  \item Лежит на гитхабе: \url{https://github.com/VestniK/mapex}
- \end{itemize}
-\end{frame}
+\begin{frame}[fragile,t]{\texttt{std::future} FAQ}
 
-\begin{frame}[fragile,t]{\texttt{future} в UI потоке}
-\begin{onlyenv}<1>
 {\em Q:} Когда мы хотим запускать асинронные задачи?
 
 {\em A:} Кода нам нельзя блокировать текущий поток.
@@ -74,14 +62,39 @@
 {\em Q:} Что мы можем сделать с \texttt{future} на результат асинхронной задачи?
 
 {\em A:} Заблокироваться чтобы получить результат.
-\end{onlyenv}
-\begin{onlyenv}<2->
- \begin{itemize}
-  \item<2-> Есть задачи по загрузке тайлов
-  \item<3-> Есть загруженные тайлы
-  \item<4-> Перед отрисовкой хотим забирать готовые тайлы без блокировок
+\end{frame}
+
+\begin{frame}[fragile,t]{Альтернативы}
+\begin{itemize}
+  \item portable\_concurrency
+  \item Folly
+  \item HPX
+  \item Seastar
+  \item Kokkos
  \end{itemize}
+\end{frame}
+
+
+\begin{frame}[t]{Давайте напишем прогу которая...}
+ \begin{itemize}[<+->]
+  \item Рисует карту на базе web-тайлов
+  \item Рисует много маркеров разных приоритетов
+  \item Не использует мутексов
+  \item Не зависает и не падает на выходе
+  \item Лежит на гитхабе: \\ \footnotesize{\url{https://github.com/VestniK/mapex}}
+ \end{itemize}
+\end{frame}
+
+\begin{frame}[t]{На всякий случай}
+
+В угоду лаконичности и удобству чтения слайдов код примеров в презентации упрощён, не следует правилам хорошего тона и
+может даже не компилироваться.
+\end{frame}
+
+\begin{frame}[fragile,t]{\texttt{future} в UI потоке}
 \begin{onlyenv}<2>
+Есть задачи по загрузке тайлов и загруженные тайлы
+
  \begin{lstlisting}[style=cppcode]
 struct tile_id {
   int tx;
@@ -90,305 +103,453 @@ struct tile_id {
 };
 
 map<tile_id, future<QImage>> tasks;
- \end{lstlisting}
-\end{onlyenv}
-\begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
-map<tile_id, future<QImage>> tasks;
 map<tile_id, QImage> tiles;
  \end{lstlisting}
 \end{onlyenv}
-\begin{onlyenv}<4>
- \begin{lstlisting}[style=cppcode]
+\begin{onlyenv}<3>
+Перед отрисовкой хотим забирать готовые тайлы без SMS и блокировок
+ \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 map<tile_id, future<QImage>> tasks;
 map<tile_id, QImage> tiles;
 
 for (auto [id, task]: tasks) {
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
   if (task.is_ready())
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
     tiles[id] = task.get();
 }
  \end{lstlisting}
 \end{onlyenv}
+\begin{onlyenv}<4>
+Или в \texttt{std::future} исполнении
+ \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+map<tile_id, std::future<QImage>> tasks;
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+map<tile_id, QImage> tiles;
+
+for (auto [id, task]: tasks) {
+  if (
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+    task.wait_for(0ms) == std::future_status::ready)
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+    tiles[id] = task.get();
+}
+ \end{lstlisting}
 \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Загружаем тайлы}
- \begin{onlyenv}<1>
-  \begin{lstlisting}[style=cppcode]
+\begin{frame}[fragile,t]{Загружаем тайлы \texttt{async}'ронно}
+\begin{onlyenv}<2>
+Асинхронная загрузка в исполнении \texttt{std::async}
+\begin{lstlisting}[style=cppcode]
 QImage load_tile(tile_id id);
-  \end{lstlisting}
-  \begin{itemize}
-   \item Пусть синхронная функция загрузки у нас уже есть
-  \end{itemize}
-  \end{onlyenv}
-  \begin{onlyenv}<2-3>
-  \begin{lstlisting}[style=cppcode]
 map<tile_id, std::future<QImage>> tasks;
-...
+
 tasks[id] = std::async(
   launch::async,
   [id] {return load_tile(id);}
 );
-  \end{lstlisting}
-  \begin{itemize}
-   \begin{onlyenv}<2>
-    \item Воспользуемся \texttt{std::async}
-   \end{onlyenv}
-   \begin{onlyenv}<3>
-    \baditem Удаление задач только через ожидание их завершения
-    \baditem На выходе ждём завершения всех текущих задач
-   \end{onlyenv}
-  \end{itemize}
-  \end{onlyenv}
-  \begin{onlyenv}<4>
-  \begin{lstlisting}[style=cppcode]
-map<tile_id, pc::future<QImage>> tasks;
-...
-tasks[id] = pc::async(
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{itemize}
+ \baditem Удаление задач только через ожидание их завершения
+ \baditem На выходе ждём завершения всех текущих задач
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<4>
+Перейдём на \texttt{pc::async}
+\begin{lstlisting}[style=cppcode]
+QImage load_tile(tile_id id);
+map<tile_id, future<QImage>> tasks;
+
+tasks[id] = async(
   QThreadPool::globalInstance(),
   [id] {return load_tile(id);}
 );
-  \end{lstlisting}
-  \begin{itemize}
-   \item Перейдём на \texttt{pc::async}
-  \end{itemize}
-  \end{onlyenv}
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{Executors}
- \begin{itemize}
-  \item<1-> Откуда \texttt{pc::async} знает про \texttt{QThreadPool}?
-  \item<3> Так же расскажем ему про \texttt{QObject}
- \end{itemize}
- \begin{onlyenv}<2>
-  \begin{lstlisting}[style=cppcode]
+\begin{onlyenv}<1>
+Откуда \texttt{pc::async} знает про \texttt{QThreadPool}?
+\end{onlyenv}
+\begin{onlyenv}<2>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 namespace portable_concurrency {
 template <>
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
 struct is_executor<QThreadPool*>: std::true_type {};
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 } // namespace portable_concurrency
 
 // ADL
 void post(
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
   QThreadPool* pool,
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
   pc::unique_function<void()> task
 );
-  \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<3>
-  \begin{lstlisting}[style=cppcode]
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 namespace portable_concurrency {
 template <>
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
 struct is_executor<QObject*>: std::true_type {};
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 } // namespace portable_concurrency
 
 // ADL
 void post(
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
   QObject* pool,
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
   pc::unique_function<void()> task
 );
-  \end{lstlisting}
- \end{onlyenv}
+\end{lstlisting}
+Так же расскажем ему про \texttt{QObject}.
+\end{onlyenv}
+\begin{onlyenv}<4>
+Executor это дешёвый для копирования канал передачи задач контексту исполнения.
+
+Это позволяет отделить задачу описания последовательности исполнения задач и их привязки к потокам от задачи управления
+потоками.
+\end{onlyenv}
+\begin{onlyenv}<5>
+\textit{\footnotesize{Разобравшись в нюансах мы можем наказать \texttt{QThreadPool} за длинное имя и в последующих слайдах принебрежительно писать \texttt{pool} вместо \texttt{QThreadPool::globalInstance()}}}.
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{Сетевые запросы и \texttt{promise}}
- \begin{itemize}[<+->]
-  \item Мы хотим работать с Qt сетью через \texttt{future}
-  \item Но она асинхронно работает через сигналы
-  \item На помощь приходит \texttt{promise}
- \end{itemize}
- \begin{onlyenv}<-2>
- \begin{lstlisting}[style=cppcode]
-future<QNetworkReply*> send_requiest(
-  QNetworkAccessManager, QUrl
-);
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<3>
-  \begin{lstlisting}[style=cppcode]
+\begin{onlyenv}<2-3>
+\begin{itemize}
+ \item<2-> Мы хотим работать с Qt сетью через \texttt{future}
+ \item<2-> Но она асинхронно работает через сигналы
+ \item<3> На помощь приходит \texttt{promise} самый низкоуровневый и сложный в обращении способ взаимодействовать с \texttt{future}
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 class promised_reply: QObject {
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
   promise<QNetworkReply*> p_;
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+slots:
   void on_reply_finished() {
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
     p_.set_value(sender());
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
   }
   void on_reply_error() {
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
     p_.set_error(sender()->error());
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
   }
 };
-  \end{lstlisting}
- \end{onlyenv}
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<5>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+future<QNetworkReply*> send_requiest(
+  QNetworkAccessManager nm, QUrl url
+) {
+  promised_reply* listener = new promised_reply;
+  QNetworkReply* reply = nm.get(url);
+  QMetaObject::connectSlotsByName(this);
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+  return listener.p_.get_future();
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+}
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{\texttt{future<future<future<T>{}>{}>}}
- \begin{itemize}[<+->]
-  \item Звать \texttt{send\_request} можно только в сетевом потоке
-  \item Какой тип вернёт нам \texttt{async}?
-  \item \texttt{future<future<T>{}>} сворачивается в \texttt{future<T>}
- \end{itemize}
- \begin{onlyenv}<2>
- \begin{lstlisting}[style=cppcode]
-QNetworkAccessManager nm;
+\begin{onlyenv}<2>
+Звать \texttt{send\_request} можно только в сетевом потоке
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode]
 auto f = async(
   &nm, [&nm] {return send_request(nm, url);}
 );
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
-QNetworkAccessManager nm;
+\end{lstlisting}
+Какой тип вернёт нам \texttt{async}?
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode]
 future<QNetworkReply*> f = async(
   &nm, [&nm] {return send_request(nm, url);}
 );
- \end{lstlisting}
- \end{onlyenv}
+\end{lstlisting}
+Удобный в использовании, а не тот, что в заголовке.
+\end{onlyenv}
+\begin{onlyenv}<5>
+В сочетании с \texttt{make\_ready\_future} и \texttt{make\_exceptional\_future} это открывает возможность либо вернуть результат синхронно сейчас либо пообещать вернуть его синхронно попозже.
+\end{onlyenv}
+\begin{onlyenv}<6>
+\begin{lstlisting}[style=cppcode]
+auto f = async(pool, [] {
+  if (auto res = load_poi_cache())
+    return make_ready_future(*res);
+  return send_request(nm, piu_url);
+});
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{Цепочки задач}
- \begin{onlyenv}<1>
- \begin{lstlisting}[style=cppcode]
+\begin{onlyenv}<2>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
-QImage parse_image(QIODevice*);
+QImage parse_image(QIODevice&);
 
-tasks[id] = async(&nm,
-  [&nm, id] { return send_reques(nm, get_tile_url(id)); }
-);
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<2>
- \begin{lstlisting}[style=cppcode]
+tasks[id] = async(&nm, [&nm, id] {
+  return send_reques(nm, get_tile_url(id));
+});
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
-QImage parse_image(QIODevice*);
+QImage parse_image(QIODevice&);
 
-tasks[id] = async(&nm,
-  [&nm, id] { return send_reques(nm, get_tile_url(id)); }
-).next(QThreadPool::globalInstance(),
-  [](QNetworkReply* reply) { return parse_image(reply); }
-);
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
+tasks[id] = async(&nm, [&nm, id] {
+  return send_reques(nm, get_tile_url(id));
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+}).next(pool, [](QNetworkReply* reply) {
+  return parse_image(reply);
+});
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
-QImage parse_image(QIODevice*);
+QImage parse_image(QIODevice&);
 
-tasks[id] = async(&nm,
-  [&nm, id] { return send_reques(nm, get_tile_url(id)); }
-).next(QThreadPool::globalInstance(),
-  [](QNetworkReply* reply) { return parse_image(reply); }
-).then(this,
-  [this](future<QImage> f) { update(); return f; }
-);
- \end{lstlisting}
- \end{onlyenv}
+tasks[id] = async(&nm, [&nm, id] {
+  return send_reques(nm, get_tile_url(id));
+}).next(pool, [](QNetworkReply* reply) {
+  return parse_image(reply);
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+}).then(&widget, [&widget](future<QImage> f) {
+  widget.update();
+  return f;
+});
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Отмена задач}
- \begin{itemize}[<+->]
-  \item Нужен ли \texttt{parse\_image} для уже невидимых тайлов?
-  \item А может нужно прервать саму из загрузку?
-  \item А что делать с очень долго выполняющимися задачами?
- \end{itemize}
- \begin{onlyenv}<2>
- \begin{lstlisting}[style=cppcode]
+\begin{frame}[fragile,t]{Отмена задач\footnote{специфично для portable\_concurrency}}
+\begin{onlyenv}<2>
+{\em Q:} Будет ли выполняться \texttt{parse\_image} для уже невидимых тайлов?
+
+{\em A:} Если он ещё не стартовал, а \texttt{future} на его результат уже разрушен, то нет.
+\end{onlyenv}
+\begin{onlyenv}<3>
+
+{\em Q:} А может нужно прервать саму из загрузку?
+
+{\em A:} Обработчик отмены назавершённой задачи можно передать в конструктор \texttt{promise}.\\
+\footnotesize{Осторожно, поток вызова обработчика неопределён.}
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode]
 QNetworkReply* reply = nm.get(url);
 promise<QNetworkReply*> p{
   canceller_arg, [reply] {reply->abort();}
 };
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<5>
+{\em Q:} А что делать с очень долго выполняющимся синхронным кодом?
+
+{\em A:} Есть ещё одна форма \texttt{then} и \texttt{promise::is\_awaiten}.
+\end{onlyenv}
+\begin{onlyenv}<6>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 future<T> f;
-future<R> res = f.then([](promise<R> p, future<T> f) {
-  not_too_long_op1();
-  if (!p.is_awaiten()) return;
-  not_too_long_op2();
-});
- \end{lstlisting}
- \end{onlyenv}
+future<R> res = f.then(
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+  [](promise<R> p, future<T> f) {
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+    not_too_long_op1();
+    if (!p.is_awaiten()) return;
+    not_too_long_op2();
+  }
+);
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Параллельная генерализация POI}
- \begin{itemize}[<+->]
-  \item Есть два приоритета ``рекламные/обычные''
-  \item Генерализуем разные приоритеты независимо
-  \item А затем объединяем результат
- \end{itemize}
- \begin{onlyenv}<2>
- \begin{lstlisting}[style=cppcode]
-vector<geo_point> generalize(vector<geo_point>, int z_level);
+\begin{frame}[fragile,t]{Когда все в сборе}
+\begin{onlyenv}<2>
+\begin{itemize}
+ \item Есть два приоритета POI ``рекламные/обычные''
+ \item Генерализуем разные приоритеты независимо
+ \item А затем объединяем результат
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode]
+using points = vector<geo_point>;
+points generalize(points, int z_level);
 
-vector<geo_point> adv;
-vector<geo_point> reg;
-auto f_adv = async(QThreadPool::globalInstance(),
+points adv;
+points reg;
+auto f_adv = async(pool,
   [=] {return generalize(adv, z_level);});
-auto f_reg = async(QThreadPool::globalInstance(),
+auto f_reg = async(pool,
   [=] {return generalize(reg, z_level);});
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
-using points = vector<geo_point>
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 auto f = when_all(f_adv, f_reg)
-  .next([](tuple<future<points>, future<points>> ready) {
+  .next([](
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+    tuple<future<points>, future<points>> ready
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+  ) {
     points adv = get<0>(ready).get();
     points reg = get<1>(ready).get();
     // ...
   });
- \end{lstlisting}
- \end{onlyenv}
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<5>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+future<points>[2] gen_fs = ...;
+auto f = when_all(begin(gen_fs), end(gen_fs))
+  .next([](
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+    vector<future<points>> ready
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+  ) {
+    points adv = ready[0].get();
+    points reg = ready[1].get();
+    // ...
+  });
+\end{lstlisting}
+Если типы одинаковые, то можно проще.
+\end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Загружаем POI}
- \begin{itemize}[<+->]
-  \item База POI загружается по сети и кэшируется локально
-  \item Включение отображения POI должно происходить быстро
-  \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
- \end{itemize}
- \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
+\begin{frame}[fragile,t]{Кто первый встал того и тапки}
+\begin{onlyenv}<2>
+\begin{itemize}
+ \item База POI загружается по сети и кэшируется локально
+ \item Включение отображения POI должно происходить быстро
+ \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 future<points> load_poi();
 points fetch_poi_cache();
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+using poi_future = ???;
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 
-auto f = when_any(
+poi_future f = when_any(
   load_poi()
-  async(QThreadPool::globalInstance(), fetch_poi_cache())
+  async(pool, fetch_poi_cache())
 );
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<4>
- \begin{lstlisting}[style=cppcode]
-future<
-  when_any_result<
-    tuple<future<points>, future<points>>
-  >
->
- \end{lstlisting}
- \end{onlyenv}
- \begin{onlyenv}<5>
- \begin{lstlisting}[style=cppcode]
+\end{lstlisting}
+\textit{\footnotesize{Тип \texttt{poi\_future} не влез на этот слайд}}
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode]
 template<typename Sequence>
 struct when_any_result {
   size_t index;
   Sequence futures;
->
- \end{lstlisting}
- \end{onlyenv}
+};
+
+using poi_future = future<
+  when_any_result<
+    tuple<future<points>, future<points>>
+  >
+>;
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{Стойте! Я не хочу это отменять...}
- \begin{itemize}[<+->]
-  \item Кэш всегда отвечает первым
-  \item \texttt{future} на результат загрузки по сети разрушается
-  \item Хочется при этом не отменять загрузку
- \end{itemize}
- \begin{onlyenv}<3>
- \begin{lstlisting}[style=cppcode]
+\begin{onlyenv}<2>
+\begin{itemize}
+ \item Кэш всегда отвечает первым
+ \item \texttt{future} на результат загрузки по сети разрушается
+ \item Хочется при этом не отменять загрузку
+ \item Для этого есть метод \texttt{future::detach}
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode]
+template<typename T>
+future<T> future<T>::detach();
+
 auto f = when_any(
   load_poi().detach()
-  async(QThreadPool::globalInstance(), fetch_poi_cache())
+  async(pool, fetch_poi_cache())
 );
- \end{lstlisting}
- \end{onlyenv}
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<4>
+Отмену можно нарезать фигурно
+\begin{lstlisting}[style=cppcode]
+auto f = async(pool, foo)
+  .next(bar).detach()
+  .next(baz);
+\end{lstlisting}
+\end{onlyenv}
+\end{frame}
+
+\begin{frame}[fragile,t]{В итоге мы имеем}
+\begin{onlyenv}<2->
+\begin{itemize}[<+->]
+ \item Управление потоками в приложении отделено от описания решаемой задачи
+ \item Код описывает ациклический граф зависимостей между задачами исполняющимися на разных потоках в правильной последовательности
+ \item Можно легко превращать синхронный код в асинхронный
+\end{itemize}
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}{Спасибо за внимание}
