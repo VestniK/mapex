@@ -1,15 +1,28 @@
-\documentclass[aspectratio=169,pdf,hyperref={unicode},17pt]{beamer}
+\documentclass[aspectratio=169,hyperref={unicode},17pt]{beamer}
 
 \usepackage[T2A]{fontenc}
-\usepackage[utf8]{inputenc}
 \usepackage[russian,english]{babel}
 \usepackage{listings}
 \usepackage{color}
 \usepackage{default}
 \usepackage{hyperref}
+\usepackage{fontspec}
 
 % Настройки бимера
+\usefonttheme{professionalfonts}
+\usefonttheme{serif}
+\setmainfont{Liberation Sans}
+
 \usetheme{Copenhagen}
+\usecolortheme{seahorse}
+\definecolor{DgisGreen}{RGB}{156, 201, 94}
+\setbeamercolor{frametitle}{fg=white,bg=DgisGreen}
+\setbeamercolor{section in head/foot}{bg=DgisGreen}
+\setbeamercolor{author in head/foot}{fg=white}
+\setbeamercolor{title in head/foot}{bg=DgisGreen!50}
+\setbeamercolor{title}{fg=white,bg=DgisGreen}
+% \include{styles}
+\expandafter\def\expandafter\insertshorttitle\expandafter{\insertshorttitle\hfill\insertframenumber\,/\,\inserttotalframenumber}
 
 % Настройки листинга
 \definecolor{comments}{rgb}{0.5,0.5,0.5}
@@ -28,17 +41,14 @@
   commentstyle=\itshape\color{comments},
   stringstyle=\color{brown},
   classoffset=1,
-  morekeywords=[1]{std,map,launch,future,shared_future,promise,packaged_task,async,move,to_string,when_any_result,when_any,tuple,when_all,list,vector,cout,flush},
+  morekeywords=[1]{std,map,launch,future,shared_future,promise,packaged_task,async,move,when_any_result,when_any,tuple,when_all,vector},
   keywordstyle=[1]\bfseries\color{stdtypes},
 }
 
-\newcommand{\gooditem}[1]{\setbeamercolor{local structure}{fg=green}\item #1}
-\newcommand{\baditem}[1]{\setbeamercolor{local structure}{fg=red}\item #1}
-\newcommand{\isodoc}[1]{{\scriptsize \color{gray} #1}}
-
 \title{Нестандартный future/promise}
 \author{Сергей Видюк}
-\date{15 февраля 2019}
+\titlegraphic{\includegraphics[height=1.2cm]{2gis_logo.png}}
+\date{}
 
 \begin{document}
 
@@ -69,19 +79,18 @@
   \item portable\_concurrency
   \item Folly
   \item HPX
-  \item Seastar
   \item Kokkos
+  \item Seastar
  \end{itemize}
 \end{frame}
 
-
 \begin{frame}[t]{Давайте напишем прогу которая...}
- \begin{itemize}[<+->]
+ \begin{itemize}
   \item Рисует карту на базе web-тайлов
   \item Рисует много маркеров POI\footnote{POI - Point Of Interest} разных приоритетов
   \item Не использует mutex...
   \item Не зависает и не падает на выходе
-  \item Лежит на гитхабе: \\ \footnotesize{\url{https://github.com/VestniK/mapex}}
+  \item Лежит на github: \\ \footnotesize{\url{https://github.com/VestniK/mapex}}
  \end{itemize}
 \end{frame}
 
@@ -158,8 +167,8 @@ tasks[id] = std::async(
 \end{onlyenv}
 \begin{onlyenv}<3>
 \begin{itemize}
- \baditem Удаление задач только через ожидание их завершения
- \baditem На выходе ждём завершения всех текущих задач
+ \item Удаление задач только через ожидание их завершения
+ \item На выходе ждём завершения всех текущих задач
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<4>
