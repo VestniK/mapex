@@ -69,6 +69,7 @@ void tile_widget::set_poi_visible(bool val) {
     current_markers_area_ = {};
     markers_.clear();
     markers_future_ = {};
+    update();
   }
 }
 
