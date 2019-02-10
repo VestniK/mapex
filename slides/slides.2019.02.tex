@@ -59,7 +59,7 @@
 \begin{frame}[t]{Кратко обо мне}
  \begin{itemize}
   \item Работаю в команде 3D карты мобильной версии 2ГИС
-  \item Написал свою реализацию \texttt{future/promise} \footnotesize{\url{https://github.com/VestniK/portable_concurrency}}
+  \item Написал свою реализацию \texttt{future/promise} {\footnotesize{\url{https://github.com/VestniK/portable_concurrency}}}
  \end{itemize}
 \end{frame}
 
@@ -69,7 +69,7 @@
 
 {\em A:} Кода нам нельзя блокировать текущий поток.
 
-{\em Q:} Что мы можем сделать с \texttt{future} на результат асинхронной задачи?
+{\em Q:} Что мы можем сделать с \texttt{std::future} на результат асинхронной задачи?
 
 {\em A:} Заблокироваться чтобы получить результат.
 \end{frame}
@@ -94,6 +94,23 @@
  \end{itemize}
 \end{frame}
 
+\begin{frame}[t]{План работ}
+\begin{onlyenv}<1>
+\begin{itemize}
+ \item В начале у нас есть синхронный прототип рисующий тайлы лежашие локально на диске.
+ \item Распаковка изображений происходит синхронно прямо в UI потоке.
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<2>
+\begin{itemize}
+ \item Унесём распаковку в отдельные потоки.
+ \item Добавим загрузку изображений по сети.
+ \item Реализуем загрузку и кэширование POI.
+ \item Распраллелим генерализацию POI разных приоритетов.
+\end{itemize}
+\end{onlyenv}
+\end{frame}
+
 \begin{frame}[t]{На всякий случай}
 
 В угоду лаконичности и удобству чтения слайдов код примеров в презентации упрощён, не следует правилам хорошего тона и
@@ -101,10 +118,16 @@
 \end{frame}
 
 \begin{frame}[fragile,t]{\texttt{future} в UI потоке}
+\begin{onlyenv}<1>
+\begin{itemize}
+ \item Всё взаимодействие с интерфейсом должно происходить в одном потоке.
+ \item Обработка пользовательких действий происходит в нём же.
+ \item Его нельзя блокировать на долго.
+\end{itemize}
+\end{onlyenv}
 \begin{onlyenv}<2>
-Есть задачи по загрузке тайлов и загруженные тайлы
-
- \begin{lstlisting}[style=cppcode]
+Есть задачи по загрузке тайлов и загруженные тайлы.
+\begin{lstlisting}[style=cppcode]
 struct tile_id {
   int tx;
   int ty;
@@ -116,7 +139,7 @@ map<tile_id, QImage> tiles;
  \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
-Перед отрисовкой хотим забирать готовые тайлы без SMS и блокировок
+Перед отрисовкой хотим забирать готовые тайлы без SMS и блокировок.
  \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 map<tile_id, future<QImage>> tasks;
 map<tile_id, QImage> tiles;
@@ -152,7 +175,14 @@ for (auto [id, task]: tasks) {
 \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Загружаем тайлы \texttt{async}'ронно}
+\begin{frame}[fragile,t]{Распаковываем тайлы \texttt{async}'ронно}
+\begin{onlyenv}<1>
+\begin{itemize}
+ \item Самый простой способ создать асинхронную задачу \texttt{async}.
+ \item Принимает функцию и аргументы.
+ \item Возвращает \texttt{future} на результат.
+\end{itemize}
+\end{onlyenv}
 \begin{onlyenv}<2>
 Асинхронная загрузка в исполнении \texttt{std::async}
 \begin{lstlisting}[style=cppcode]
@@ -166,6 +196,7 @@ tasks[id] = std::async(
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
+Проблемы:
 \begin{itemize}
  \item Удаление задач только через ожидание их завершения
  \item На выходе ждём завершения всех текущих задач
@@ -201,17 +232,37 @@ struct is_executor<QThreadPool*>: std::true_type {};
 } // namespace portable_concurrency
 
 // ADL
+template<typename F>
+// requires Callable<F, void()> && MoveConstructable<F>
 void post(
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
   QThreadPool* pool,
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-  pc::unique_function<void()> task
+  F&& task
 );
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+namespace portable_concurrency {
+template <>
+struct is_executor<QThreadPool*>: std::true_type {};
+} // namespace portable_concurrency
+
+// ADL
+void post(
+  QThreadPool* pool,
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+  pc::unique_function<void()> task
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+);
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<4>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 namespace portable_concurrency {
 template <>
@@ -234,26 +285,26 @@ void post(
 \end{lstlisting}
 Так же расскажем ему про \texttt{QObject}.
 \end{onlyenv}
-\begin{onlyenv}<4>
+\begin{onlyenv}<5>
 Executor это дешёвый для копирования канал передачи задач контексту исполнения.
 
 Это позволяет отделить задачу описания последовательности исполнения задач и их привязки к потокам от задачи управления
 потоками.
 \end{onlyenv}
-\begin{onlyenv}<5>
+\begin{onlyenv}<6>
 \textit{\footnotesize{Разобравшись в нюансах мы можем наказать \texttt{QThreadPool} за длинное имя и в последующих слайдах принебрежительно писать \texttt{pool} вместо \texttt{QThreadPool::globalInstance()}}}.
 \end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{Сетевые запросы и \texttt{promise}}
-\begin{onlyenv}<2-3>
+\begin{onlyenv}<1>
 \begin{itemize}
- \item<2-> Мы хотим работать с Qt сетью через \texttt{future}
- \item<2-> Но она асинхронно работает через сигналы
- \item<3> На помощь приходит \texttt{promise} самый низкоуровневый и сложный в обращении способ взаимодействовать с \texttt{future}
+ \item Мы хотим работать с Qt сетью через \texttt{future}
+ \item Но она асинхронно работает через сигналы
+ \item На помощь приходит \texttt{promise} самый низкоуровневый и сложный в обращении способ взаимодействовать с \texttt{future}
 \end{itemize}
 \end{onlyenv}
-\begin{onlyenv}<4>
+\begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 class promised_reply: QObject {
 \end{lstlisting}
@@ -279,7 +330,7 @@ slots:
 };
 \end{lstlisting}
 \end{onlyenv}
-\begin{onlyenv}<5>
+\begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 future<QNetworkReply*> send_request(
   QNetworkAccessManager nm, QUrl url
@@ -325,7 +376,7 @@ future<QNetworkReply*> f = async(
 auto f = async(pool, [] {
   if (auto res = load_poi_cache())
     return make_ready_future(*res);
-  return send_request(nm, piu_url);
+  return send_request(nm, poi_url);
 });
 \end{lstlisting}
 \end{onlyenv}
@@ -422,7 +473,79 @@ future<R> res = f.then(
 \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Когда все в сборе}
+\begin{frame}[fragile,t]{Загрузка POI}
+\begin{onlyenv}<2>
+\begin{itemize}
+ \item База POI загружается по сети и кэшируется локально
+ \item Включение отображения POI должно происходить быстро
+ \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+future<points> load_poi();
+points fetch_poi_cache();
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+using poi_future = ???;
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+
+poi_future f = when_any(
+  load_poi()
+  async(pool, fetch_poi_cache())
+);
+\end{lstlisting}
+\textit{\footnotesize{Тип \texttt{poi\_future} не влез на этот слайд}}
+\end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode]
+template<typename Sequence>
+struct when_any_result {
+  size_t index;
+  Sequence futures;
+};
+
+using poi_future = future<
+  when_any_result<
+    tuple<future<points>, future<points>>
+  >
+>;
+\end{lstlisting}
+\end{onlyenv}
+\end{frame}
+
+\begin{frame}[fragile,t]{Быстрый кэш и отмена запроса}
+\begin{onlyenv}<2>
+\begin{itemize}
+ \item Кэш всегда отвечает первым
+ \item \texttt{future} на результат загрузки по сети разрушается
+ \item Хочется при этом не отменять загрузку
+ \item Для этого есть метод \texttt{future::detach}
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<3>
+\begin{lstlisting}[style=cppcode]
+template<typename T>
+future<T> future<T>::detach();
+
+auto f = when_any(
+  load_poi().detach(),
+  async(pool, fetch_poi_cache())
+);
+\end{lstlisting}
+\end{onlyenv}
+\begin{onlyenv}<4>
+Отмену можно нарезать фигурно
+\begin{lstlisting}[style=cppcode]
+auto f = async(pool, foo)
+  .next(bar).detach()
+  .next(baz);
+\end{lstlisting}
+\end{onlyenv}
+\end{frame}
+
+\begin{frame}[fragile,t]{Генерализация POI}
 \begin{onlyenv}<2>
 \begin{itemize}
  \item Есть два приоритета POI ``рекламные/обычные''
@@ -479,78 +602,6 @@ auto f = when_all(begin(gen_fs), end(gen_fs))
 \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Кто первый встал того и тапки}
-\begin{onlyenv}<2>
-\begin{itemize}
- \item База POI загружается по сети и кэшируется локально
- \item Включение отображения POI должно происходить быстро
- \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
-\end{itemize}
-\end{onlyenv}
-\begin{onlyenv}<3>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-future<points> load_poi();
-points fetch_poi_cache();
-\end{lstlisting}
-\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
-using poi_future = ???;
-\end{lstlisting}
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-
-poi_future f = when_any(
-  load_poi()
-  async(pool, fetch_poi_cache())
-);
-\end{lstlisting}
-\textit{\footnotesize{Тип \texttt{poi\_future} не влез на этот слайд}}
-\end{onlyenv}
-\begin{onlyenv}<4>
-\begin{lstlisting}[style=cppcode]
-template<typename Sequence>
-struct when_any_result {
-  size_t index;
-  Sequence futures;
-};
-
-using poi_future = future<
-  when_any_result<
-    tuple<future<points>, future<points>>
-  >
->;
-\end{lstlisting}
-\end{onlyenv}
-\end{frame}
-
-\begin{frame}[fragile,t]{Стойте! Я не хочу это отменять...}
-\begin{onlyenv}<2>
-\begin{itemize}
- \item Кэш всегда отвечает первым
- \item \texttt{future} на результат загрузки по сети разрушается
- \item Хочется при этом не отменять загрузку
- \item Для этого есть метод \texttt{future::detach}
-\end{itemize}
-\end{onlyenv}
-\begin{onlyenv}<3>
-\begin{lstlisting}[style=cppcode]
-template<typename T>
-future<T> future<T>::detach();
-
-auto f = when_any(
-  load_poi().detach(),
-  async(pool, fetch_poi_cache())
-);
-\end{lstlisting}
-\end{onlyenv}
-\begin{onlyenv}<4>
-Отмену можно нарезать фигурно
-\begin{lstlisting}[style=cppcode]
-auto f = async(pool, foo)
-  .next(bar).detach()
-  .next(baz);
-\end{lstlisting}
-\end{onlyenv}
-\end{frame}
-
 \begin{frame}[fragile,t]{В итоге мы имеем}
 \begin{itemize}[<+->]
  \item Управление потоками в приложении отделено от описания решаемой задачи
@@ -559,8 +610,26 @@ auto f = async(pool, foo)
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Спасибо за внимание}
-\centerline{\includegraphics[height=4.5cm]{question_mark_blue.png}}
+\begin{frame}[t]{Спасибо за внимание}
+Мои контакты:
+
+{\footnotesize{\url{sir.vestnik@gmail.com}}\\
+\footnotesize{\url{https://github.com/VestniK}}}
+
+Ссылки:
+
+\begin{columns}
+\begin{column}{0.5\textwidth}
+
+{\footnotesize{Демо проект:}}\\
+\includegraphics[width=0.5\textwidth]{demo-qr.eps}
+\end{column}
+\begin{column}{0.5\textwidth}
+
+{\footnotesize{portable\_concurrency:}}\\
+\includegraphics[height=0.5\textwidth]{pc-qr.eps}
+\end{column}
+\end{columns}
 \end{frame}
 
 \end{document}
