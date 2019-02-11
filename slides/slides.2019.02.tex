@@ -38,10 +38,10 @@
   basicstyle=\footnotesize\ttfamily,
   morekeywords={constexpr,static_assert,decltype,co_await,co_return},
   keywordstyle=\bfseries\color{blue},
-  commentstyle=\itshape\color{comments},
+  commentstyle=\color{comments},
   stringstyle=\color{brown},
   classoffset=1,
-  morekeywords=[1]{std,map,launch,future,shared_future,promise,packaged_task,async,move,when_any_result,when_any,tuple,when_all,vector},
+  morekeywords=[1]{std,map,launch,future,shared_future,promise,packaged_task,async,move,when_any_result,when_any,tuple,when_all,vector,unique_function},
   keywordstyle=[1]\bfseries\color{stdtypes},
 }
 
@@ -256,7 +256,7 @@ void post(
   QThreadPool* pool,
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
-  pc::unique_function<void()> task
+  unique_function<void()> task
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 );
@@ -280,16 +280,17 @@ void post(
   QObject* pool,
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-  pc::unique_function<void()> task
+  unique_function<void()> task
 );
 \end{lstlisting}
 Так же расскажем ему про \texttt{QObject}.
 \end{onlyenv}
 \begin{onlyenv}<5>
-Executor это дешёвый для копирования канал передачи задач контексту исполнения.
-
-Это позволяет отделить задачу описания последовательности исполнения задач и их привязки к потокам от задачи управления
-потоками.
+Требования на Executor:
+\begin{itemize}
+ \item Дешёвый для копирования.
+ \item Хранение его копии в задаче отсылаемой через \texttt{post} не приводит к циклическим ссылкам и утечкам
+\end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<6>
 \textit{\footnotesize{Разобравшись в нюансах мы можем наказать \texttt{QThreadPool} за длинное имя и в последующих слайдах принебрежительно писать \texttt{pool} вместо \texttt{QThreadPool::globalInstance()}}}.
@@ -349,10 +350,14 @@ future<QNetworkReply*> send_request(
 \end{frame}
 
 \begin{frame}[fragile,t]{\texttt{future<future<future<T>{}>{}>}}
-\begin{onlyenv}<2>
-Вызывать \texttt{send\_request} можно только в сетевом потоке
+\begin{onlyenv}<1>
+\begin{itemize}
+ \item Вызывать \texttt{send\_request} можно только в сетевом потоке.
+ \item Она возвращает \texttt{future}.
+ \item Функция \texttt{async} добавляет к козвращаемому значению \texttt{future}.
+\end{itemize}
 \end{onlyenv}
-\begin{onlyenv}<3>
+\begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode]
 auto f = async(
   &nm, [&nm] {return send_request(nm, url);}
@@ -360,25 +365,13 @@ auto f = async(
 \end{lstlisting}
 Какой тип вернёт нам \texttt{async}?
 \end{onlyenv}
-\begin{onlyenv}<4>
+\begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode]
 future<QNetworkReply*> f = async(
   &nm, [&nm] {return send_request(nm, url);}
 );
 \end{lstlisting}
 Удобный в использовании, а не тот, что в заголовке.
-\end{onlyenv}
-\begin{onlyenv}<5>
-В сочетании с \texttt{make\_ready\_future} и \texttt{make\_exceptional\_future} это открывает возможность либо вернуть результат синхронно сейчас либо пообещать вернуть его синхронно попозже.
-\end{onlyenv}
-\begin{onlyenv}<6>
-\begin{lstlisting}[style=cppcode]
-auto f = async(pool, [] {
-  if (auto res = load_poi_cache())
-    return make_ready_future(*res);
-  return send_request(nm, poi_url);
-});
-\end{lstlisting}
 \end{onlyenv}
 \end{frame}
 
@@ -474,14 +467,14 @@ future<R> res = f.then(
 \end{frame}
 
 \begin{frame}[fragile,t]{Загрузка POI}
-\begin{onlyenv}<2>
+\begin{onlyenv}<1>
 \begin{itemize}
  \item База POI загружается по сети и кэшируется локально
  \item Включение отображения POI должно происходить быстро
  \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
 \end{itemize}
 \end{onlyenv}
-\begin{onlyenv}<3>
+\begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 future<points> load_poi();
 points fetch_poi_cache();
@@ -498,7 +491,7 @@ poi_future f = when_any(
 \end{lstlisting}
 \textit{\footnotesize{Тип \texttt{poi\_future} не влез на этот слайд}}
 \end{onlyenv}
-\begin{onlyenv}<4>
+\begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode]
 template<typename Sequence>
 struct when_any_result {
@@ -513,10 +506,25 @@ using poi_future = future<
 >;
 \end{lstlisting}
 \end{onlyenv}
+\begin{onlyenv}<4>
+\begin{lstlisting}[style=cppcode]
+future<points> load_poi();
+points fetch_poi_cache();
+using poi_future = when_any_result<
+  vector<future<points>>
+>;
+
+future<point> futures[2] = {
+  load_poi()
+  async(pool, fetch_poi_cache())
+};
+auto f = when_any(begin(futures), end(futures));
+\end{lstlisting}
+\end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile,t]{Быстрый кэш и отмена запроса}
-\begin{onlyenv}<2>
+\begin{onlyenv}<1>
 \begin{itemize}
  \item Кэш всегда отвечает первым
  \item \texttt{future} на результат загрузки по сети разрушается
@@ -524,7 +532,7 @@ using poi_future = future<
  \item Для этого есть метод \texttt{future::detach}
 \end{itemize}
 \end{onlyenv}
-\begin{onlyenv}<3>
+\begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode]
 template<typename T>
 future<T> future<T>::detach();
@@ -535,7 +543,7 @@ auto f = when_any(
 );
 \end{lstlisting}
 \end{onlyenv}
-\begin{onlyenv}<4>
+\begin{onlyenv}<3>
 Отмену можно нарезать фигурно
 \begin{lstlisting}[style=cppcode]
 auto f = async(pool, foo)
@@ -545,15 +553,41 @@ auto f = async(pool, foo)
 \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Генерализация POI}
-\begin{onlyenv}<2>
+\begin{frame}[fragile,t]{Не рисуем пустой кэш}
+\begin{onlyenv}<1>
 \begin{itemize}
- \item Есть два приоритета POI ``рекламные/обычные''
- \item Генерализуем разные приоритеты независимо
- \item А затем объединяем результат
+ \item Когда кэш пуст отдавать его содержимое на отрисовку безсмысленно.
+ \item В этом случае хочется продолжить дожидаться ответа от сети.
 \end{itemize}
 \end{onlyenv}
-\begin{onlyenv}<3>
+\begin{onlyenv}<2>
+\begin{lstlisting}[style=cppcode]
+future<point> futures[2] = {
+  load_poi()
+  async(pool, fetch_poi_cache())
+};
+future<points> f =
+  when_any(begin(futures), end(futures))
+  .next([](auto ready) {
+    points res = ready.futures[ready.index].get();
+    if (res.empty() && ready.index == 1)
+      return ready[0];
+    return make_ready_future(res);
+  });
+\end{lstlisting}
+\end{onlyenv}
+\end{frame}
+
+
+\begin{frame}[fragile,t]{Генерализация POI}
+\begin{onlyenv}<1>
+\begin{itemize}
+ \item Есть два приоритета POI ``рекламные/обычные''.
+ \item Генерализуем разные приоритеты независимо.
+ \item А затем объединяем результат.
+\end{itemize}
+\end{onlyenv}
+\begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode]
 using points = vector<geo_point>;
 points generalize(points, int z_level);
@@ -566,7 +600,7 @@ auto f_reg = async(pool,
   [=] {return generalize(reg, z_level);});
 \end{lstlisting}
 \end{onlyenv}
-\begin{onlyenv}<4>
+\begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 auto f = when_all(f_adv, f_reg)
   .next([](
@@ -581,24 +615,6 @@ auto f = when_all(f_adv, f_reg)
     // ...
   });
 \end{lstlisting}
-\end{onlyenv}
-\begin{onlyenv}<5>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-future<points>[2] gen_fs = ...;
-auto f = when_all(begin(gen_fs), end(gen_fs))
-  .next([](
-\end{lstlisting}
-\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
-    vector<future<points>> ready
-\end{lstlisting}
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-  ) {
-    points adv = ready[0].get();
-    points reg = ready[1].get();
-    // ...
-  });
-\end{lstlisting}
-Если типы одинаковые, то можно проще.
 \end{onlyenv}
 \end{frame}
 
