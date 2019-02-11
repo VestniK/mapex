@@ -97,7 +97,7 @@
 \begin{frame}[t]{План работ}
 \begin{onlyenv}<1>
 \begin{itemize}
- \item В начале у нас есть синхронный прототип рисующий тайлы лежашие локально на диске.
+ \item В начале у нас есть синхронный прототип рисующий тайлы лежащие локально на диске.
  \item Распаковка изображений происходит синхронно прямо в UI потоке.
 \end{itemize}
 \end{onlyenv}
@@ -219,6 +219,10 @@ tasks[id] = async(
 \begin{frame}[fragile,t]{Executors}
 \begin{onlyenv}<1>
 Откуда \texttt{pc::async} знает про \texttt{QThreadPool}?
+\begin{itemize}
+ \item portable\_concurrency не зависит от Qt
+ \item не предоставляет своих рекомендуемых к использованию executor'ов
+\end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
@@ -289,7 +293,7 @@ void post(
 Требования на Executor:
 \begin{itemize}
  \item Дешёвый для копирования.
- \item Хранение его копии в задаче отсылаемой через \texttt{post} не приводит к циклическим ссылкам и утечкам
+ \item Хранение его копии в задаче отсылаемой через \texttt{post} не приводит к циклическим ссылкам и утечкам.
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<6>
@@ -300,9 +304,9 @@ void post(
 \begin{frame}[fragile,t]{Сетевые запросы и \texttt{promise}}
 \begin{onlyenv}<1>
 \begin{itemize}
- \item Мы хотим работать с Qt сетью через \texttt{future}
- \item Но она асинхронно работает через сигналы
- \item На помощь приходит \texttt{promise} самый низкоуровневый и сложный в обращении способ взаимодействовать с \texttt{future}
+ \item Мы хотим работать с Qt сетью через \texttt{future}.
+ \item Но она асинхронно работает через сигналы.
+ \item На помощь приходит \texttt{promise} самый низкоуровневый и сложный в обращении способ взаимодействовать с \texttt{future}.
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
@@ -359,6 +363,8 @@ future<QNetworkReply*> send_request(
 \end{onlyenv}
 \begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode]
+QNetworkAccessManager nm;
+
 auto f = async(
   &nm, [&nm] {return send_request(nm, url);}
 );
@@ -367,6 +373,8 @@ auto f = async(
 \end{onlyenv}
 \begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode]
+QNetworkAccessManager nm;
+
 future<QNetworkReply*> f = async(
   &nm, [&nm] {return send_request(nm, url);}
 );
@@ -376,6 +384,14 @@ future<QNetworkReply*> f = async(
 \end{frame}
 
 \begin{frame}[fragile,t]{Цепочки задач}
+\begin{onlyenv}<1>
+Получение \texttt{QImage} пригодного для отрисовки состоит из двух этапов.
+\begin{itemize}
+ \item Загрузки по сети.
+ \item Распаковки полученного изображения.
+\end{itemize}
+Второй шаг необходимо уметь запускать по факту завершения первого.
+\end{onlyenv}
 \begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
@@ -469,9 +485,9 @@ future<R> res = f.then(
 \begin{frame}[fragile,t]{Загрузка POI}
 \begin{onlyenv}<1>
 \begin{itemize}
- \item База POI загружается по сети и кэшируется локально
- \item Включение отображения POI должно происходить быстро
- \item Одновременно идём в сеть и в кэш и смотрим кто быстрей
+ \item База POI загружается по сети и кэшируется локально.
+ \item Включение отображения POI должно происходить быстро.
+ \item Одновременно идём в сеть и в кэш и смотрим кто быстрей.
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
@@ -485,7 +501,7 @@ using poi_future = ???;
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 
 poi_future f = when_any(
-  load_poi()
+  load_poi(),
   async(pool, fetch_poi_cache())
 );
 \end{lstlisting}
@@ -507,17 +523,23 @@ using poi_future = future<
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<4>
-\begin{lstlisting}[style=cppcode]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 future<points> load_poi();
 points fetch_poi_cache();
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
 using poi_future = when_any_result<
   vector<future<points>>
 >;
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
 
-future<point> futures[2] = {
-  load_poi()
+future<points> futures[2] = {
+  load_poi(),
   async(pool, fetch_poi_cache())
 };
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt]
 auto f = when_any(begin(futures), end(futures));
 \end{lstlisting}
 \end{onlyenv}
@@ -556,28 +578,29 @@ auto f = async(pool, foo)
 \begin{frame}[fragile,t]{Не рисуем пустой кэш}
 \begin{onlyenv}<1>
 \begin{itemize}
- \item Когда кэш пуст отдавать его содержимое на отрисовку безсмысленно.
+ \item Когда кэш пуст отдавать его содержимое на отрисовку бессмысленно.
  \item В этом случае хочется продолжить дожидаться ответа от сети.
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
-\begin{lstlisting}[style=cppcode]
-future<point> futures[2] = {
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
+future<points> futures[2] = {
   load_poi()
   async(pool, fetch_poi_cache())
 };
 future<points> f =
   when_any(begin(futures), end(futures))
-  .next([](auto ready) {
-    points res = ready.futures[ready.index].get();
-    if (res.empty() && ready.index == 1)
-      return ready[0];
-    return make_ready_future(res);
+  .next([](auto seq) {
+    points poi = seq.futures[seq.index].get();
+\end{lstlisting}
+\begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+    if (poi.empty() && seq.index == 1)
+      return seq[0];
+    return make_ready_future(poi);
   });
 \end{lstlisting}
 \end{onlyenv}
 \end{frame}
-
 
 \begin{frame}[fragile,t]{Генерализация POI}
 \begin{onlyenv}<1>
@@ -592,17 +615,17 @@ future<points> f =
 using points = vector<geo_point>;
 points generalize(points, int z_level);
 
-points adv;
-points reg;
-auto f_adv = async(pool,
-  [=] {return generalize(adv, z_level);});
-auto f_reg = async(pool,
-  [=] {return generalize(reg, z_level);});
+points ads;
+points poi;
+auto f_ads = async(pool,
+  [=] {return generalize(ads, z_level);});
+auto f_poi = async(pool,
+  [=] {return generalize(poi, z_level);});
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
-auto f = when_all(f_adv, f_reg)
+auto f = when_all(f_ads, f_poi)
   .next([](
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
@@ -610,8 +633,8 @@ auto f = when_all(f_adv, f_reg)
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
   ) {
-    points adv = get<0>(ready).get();
-    points reg = get<1>(ready).get();
+    points g_ads = get<0>(ready).get();
+    points g_poi = get<1>(ready).get();
     // ...
   });
 \end{lstlisting}
@@ -620,9 +643,10 @@ auto f = when_all(f_adv, f_reg)
 
 \begin{frame}[fragile,t]{В итоге мы имеем}
 \begin{itemize}[<+->]
- \item Управление потоками в приложении отделено от описания решаемой задачи
- \item Код описывает ациклический граф зависимостей между задачами исполняющимися на разных потоках в правильной последовательности
- \item Можно легко превращать синхронный код в асинхронный
+ \item Начав с синхронного прототипа мы легко сделали код асинхронным.
+ \item Код управления потоками отделён от описания асинхронных задач.
+ \item Порядок исполнения строго определён зависимостью задач друг от друга.
+ \item Механизм описания зависимостей не позволяет создавать циклов.
 \end{itemize}
 \end{frame}
 
