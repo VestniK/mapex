@@ -8,21 +8,18 @@
 \usepackage{hyperref}
 \usepackage{fontspec}
 
-% Настройки бимера
 \usefonttheme{professionalfonts}
 \usefonttheme{serif}
 \setmainfont{Liberation Sans}
 
+% Настройки бимера
 \usetheme{Copenhagen}
 \usecolortheme{seahorse}
 \definecolor{DgisGreen}{RGB}{156, 201, 94}
 \setbeamercolor{frametitle}{fg=white,bg=DgisGreen}
-\setbeamercolor{section in head/foot}{bg=DgisGreen}
-\setbeamercolor{author in head/foot}{fg=white}
-\setbeamercolor{title in head/foot}{bg=DgisGreen!50}
 \setbeamercolor{title}{fg=white,bg=DgisGreen}
-% \include{styles}
-\expandafter\def\expandafter\insertshorttitle\expandafter{\insertshorttitle\hfill\insertframenumber\,/\,\inserttotalframenumber}
+\beamertemplatenavigationsymbolsempty
+\setbeamertemplate{footline}[frame number]
 
 % Настройки листинга
 \definecolor{comments}{rgb}{0.5,0.5,0.5}
@@ -47,7 +44,7 @@
 
 \title{Нестандартный future/promise}
 \author{Сергей Видюк}
-\titlegraphic{\includegraphics[height=1.2cm]{2gis_logo.png}}
+\titlegraphic{\includegraphics[height=1.2cm]{2GISLogo.eps}}
 \date{}
 
 \begin{document}
@@ -59,7 +56,7 @@
 \begin{frame}[t]{Кратко обо мне}
  \begin{itemize}
   \item Работаю в команде 3D карты мобильной версии 2ГИС
-  \item Написал свою реализацию \texttt{future/promise} {\footnotesize{\url{https://github.com/VestniK/portable_concurrency}}}
+  \item Написал свою реализацию \texttt{future/promise}
  \end{itemize}
 \end{frame}
 
@@ -84,10 +81,10 @@
  \end{itemize}
 \end{frame}
 
-\begin{frame}[t]{Давайте напишем прогу которая...}
+\begin{frame}[t]{Давайте напишем прогу, которая...}
  \begin{itemize}
   \item Рисует карту на базе web-тайлов
-  \item Рисует много маркеров POI\footnote{POI - Point Of Interest} разных приоритетов
+  \item Рисует много маркеров POI разных приоритетов
   \item Не использует mutex...
   \item Не зависает и не падает на выходе
   \item Лежит на github: \\ \footnotesize{\url{https://github.com/VestniK/mapex}}
@@ -106,7 +103,7 @@
  \item Унесём распаковку в отдельные потоки.
  \item Добавим загрузку изображений по сети.
  \item Реализуем загрузку и кэширование POI.
- \item Распраллелим генерализацию POI разных приоритетов.
+ \item Распараллелим генерализацию POI разных приоритетов.
 \end{itemize}
 \end{onlyenv}
 \end{frame}
@@ -140,7 +137,7 @@ map<tile_id, QImage> tiles;
 \end{onlyenv}
 \begin{onlyenv}<3>
 Перед отрисовкой хотим забирать готовые тайлы без SMS и блокировок.
- \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+ \begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, future<QImage>> tasks;
 map<tile_id, QImage> tiles;
 
@@ -156,7 +153,7 @@ for (auto [id, task]: tasks) {
 \end{onlyenv}
 \begin{onlyenv}<4>
 Или в \texttt{std::future} исполнении
- \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
+ \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
@@ -225,7 +222,7 @@ tasks[id] = async(
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 namespace portable_concurrency {
 template <>
 \end{lstlisting}
@@ -249,7 +246,7 @@ void post(
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 namespace portable_concurrency {
 template <>
 struct is_executor<QThreadPool*>: std::true_type {};
@@ -267,7 +264,7 @@ void post(
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<4>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 namespace portable_concurrency {
 template <>
 \end{lstlisting}
@@ -287,7 +284,6 @@ void post(
   unique_function<void()> task
 );
 \end{lstlisting}
-Так же расскажем ему про \texttt{QObject}.
 \end{onlyenv}
 \begin{onlyenv}<5>
 Требования на Executor:
@@ -310,7 +306,7 @@ void post(
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 class promised_reply: QObject {
 \end{lstlisting}
 \begin{lstlisting}[style=cppcode,backgroundcolor=\color{gray!30},aboveskip=0pt,belowskip=0pt]
@@ -336,7 +332,7 @@ slots:
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 future<QNetworkReply*> send_request(
   QNetworkAccessManager nm, QUrl url
 ) {
@@ -393,7 +389,7 @@ future<QNetworkReply*> f = async(
 Второй шаг необходимо уметь запускать по факту завершения первого.
 \end{onlyenv}
 \begin{onlyenv}<2>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
 QImage parse_image(QIODevice&);
@@ -404,7 +400,7 @@ tasks[id] = async(&nm, [&nm, id] {
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
 QImage parse_image(QIODevice&);
@@ -419,7 +415,7 @@ tasks[id] = async(&nm, [&nm, id] {
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<4>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
 QImage parse_image(QIODevice&);
@@ -438,18 +434,20 @@ tasks[id] = async(&nm, [&nm, id] {
 \end{onlyenv}
 \end{frame}
 
-\begin{frame}[fragile,t]{Отмена задач\footnote{специфично для portable\_concurrency}}
-\begin{onlyenv}<2>
+\begin{frame}[fragile,t]{Отмена задач {\footnotesize{специфично для portable\_concurrency}}}
+\begin{onlyenv}<1>
 {\em Q:} Будет ли выполняться \texttt{parse\_image} для уже невидимых тайлов?
 
 {\em A:} Если он ещё не стартовал, а \texttt{future} на его результат уже разрушен, то нет.
 \end{onlyenv}
-\begin{onlyenv}<3>
+\begin{onlyenv}<2-3>
 
 {\em Q:} А может нужно прервать саму загрузку тайлов?
 
 {\em A:} Обработчик отмены назавершённой задачи можно передать в конструктор \texttt{promise}.\\
+\begin{onlyenv}<3>
 \footnotesize{Осторожно, поток вызова обработчика неопределён.}
+\end{onlyenv}
 \end{onlyenv}
 \begin{onlyenv}<4>
 \begin{lstlisting}[style=cppcode]
@@ -465,7 +463,7 @@ promise<QNetworkReply*> p{
 {\em A:} Есть ещё одна форма \texttt{then} и \texttt{promise::is\_awaiten}.
 \end{onlyenv}
 \begin{onlyenv}<6>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 future<T> f;
 future<R> res = f.then(
 \end{lstlisting}
@@ -491,7 +489,7 @@ future<R> res = f.then(
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 future<points> load_poi();
 points fetch_poi_cache();
 \end{lstlisting}
@@ -559,10 +557,10 @@ auto f = when_any(begin(futures), end(futures));
 template<typename T>
 future<T> future<T>::detach();
 
-auto f = when_any(
+future<points> futures[2] = {
   load_poi().detach(),
   async(pool, fetch_poi_cache())
-);
+};
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
@@ -584,10 +582,6 @@ auto f = async(pool, foo)
 \end{onlyenv}
 \begin{onlyenv}<2>
 \begin{lstlisting}[style=cppcode,belowskip=0pt]
-future<points> futures[2] = {
-  load_poi()
-  async(pool, fetch_poi_cache())
-};
 future<points> f =
   when_any(begin(futures), end(futures))
   .next([](auto seq) {
@@ -605,7 +599,7 @@ future<points> f =
 \begin{frame}[fragile,t]{Генерализация POI}
 \begin{onlyenv}<1>
 \begin{itemize}
- \item Есть два приоритета POI ``рекламные/обычные''.
+ \item Есть два приоритета POI <<рекламные/обычные>>.
  \item Генерализуем разные приоритеты независимо.
  \item А затем объединяем результат.
 \end{itemize}
@@ -624,7 +618,7 @@ auto f_poi = async(pool,
 \end{lstlisting}
 \end{onlyenv}
 \begin{onlyenv}<3>
-\begin{lstlisting}[style=cppcode,aboveskip=0pt,belowskip=0pt]
+\begin{lstlisting}[style=cppcode,belowskip=0pt]
 auto f = when_all(f_ads, f_poi)
   .next([](
 \end{lstlisting}
