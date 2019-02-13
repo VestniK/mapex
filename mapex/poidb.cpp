@@ -80,33 +80,6 @@ struct point_group_morton_code_less {
   }
 };
 
-std::vector<point_group> generalize(
-    const std::vector<uint64_t>& points, uint64_t vp_min, uint64_t vp_max, int z_level) {
-  constexpr unsigned cell_pixel_size_log2 = 5;
-  constexpr unsigned tile_pixel_size_log2 = 8;
-  constexpr unsigned world_coord_range_log2 = 32;
-
-  const int cell_coord_range_log2 = world_coord_range_log2 - (tile_pixel_size_log2 - cell_pixel_size_log2 + z_level);
-  const uint64_t cell_mask = ~uint64_t{0} << (2 * cell_coord_range_log2);
-  const uint64_t cell_step = uint64_t{1} << (2 * cell_coord_range_log2);
-  const uint64_t cell_center_bits = uint64_t{0b11} << (2 * (cell_coord_range_log2 - 1));
-  std::vector<point_group> res;
-  auto first = std::lower_bound(points.begin(), points.end(), vp_min);
-  const auto last = std::upper_bound(points.begin(), points.end(), vp_max);
-  while (first != last) {
-    if (!is_in_rect(morton::decode(*first), morton::decode(vp_min), morton::decode(vp_max)))
-      first = std::lower_bound(first, last, morton::bigmin(*first, vp_min, vp_max));
-
-    const uint64_t next_cell_start = ((*first) & cell_mask) + cell_step;
-    auto next = std::lower_bound(first, last, next_cell_start);
-    if (const auto points_count = static_cast<int>(std::distance(first, next)); points_count > 0)
-      res.push_back({(*first & cell_mask) | cell_center_bits, points_count});
-
-    first = next;
-  }
-  return res;
-}
-
 uint64_t pointf_to_morton(QPointF pt) noexcept {
   assert(pt.x() < 1.0 && pt.x() >= 0.0);
   assert(pt.y() < 1.0 && pt.y() >= 0.0);
@@ -118,6 +91,58 @@ QPointF pointf_from_morton(uint64_t code) noexcept {
   const auto pt = morton::decode(code);
   const double max_coord = std::pow(2., 32.);
   return {pt.x / max_coord, pt.y / max_coord};
+}
+
+constexpr unsigned cell_pixel_size_log2 = 5;
+constexpr unsigned tile_pixel_size_log2 = 8;
+constexpr unsigned world_coord_range_log2 = 32;
+
+std::vector<point_group> generalize(
+    const std::vector<uint64_t>& points, uint64_t vp_min, uint64_t vp_max, int z_level) {
+
+  const int cell_coord_range_log2 = world_coord_range_log2 - (tile_pixel_size_log2 - cell_pixel_size_log2 + z_level);
+  const uint64_t cell_mask = ~uint64_t{0} << (2 * cell_coord_range_log2);
+  const uint64_t cell_step = uint64_t{1} << (2 * cell_coord_range_log2);
+  std::vector<point_group> res;
+  auto first = std::lower_bound(points.begin(), points.end(), vp_min);
+  const auto last = std::upper_bound(points.begin(), points.end(), vp_max);
+  while (first != last) {
+    if (!is_in_rect(morton::decode(*first), morton::decode(vp_min), morton::decode(vp_max)))
+      first = std::lower_bound(first, last, morton::bigmin(*first, vp_min, vp_max));
+
+    uint64_t x_sum = 0;
+    uint64_t y_sum = 0;
+    int count = 0;
+    const uint64_t next_cell_start = ((*first) & cell_mask) + cell_step;
+    for (; first != last && *first < next_cell_start; ++first) {
+      const point pt = morton::decode(*first);
+      x_sum += pt.x;
+      y_sum += pt.y;
+      ++count;
+    }
+    if (count > 0) {
+      res.push_back(point_group{
+          morton::code({static_cast<uint32_t>(x_sum / count), static_cast<uint32_t>(y_sum / count)}), count});
+    }
+  }
+  return res;
+}
+
+std::vector<marker> merge_generalizations(
+    std::vector<point_group> ads, std::vector<point_group> poi, uint64_t vp_min, uint64_t vp_max, int z_level) {
+  std::vector<marker> markers;
+  markers.reserve(ads.size() + poi.size());
+  for (const auto& item : ads) {
+    markers.push_back({pointf_from_morton(item.morton_code), item.count, true});
+    auto it = std::lower_bound(poi.begin(), poi.end(), item, point_group_morton_code_less{});
+    if (it != poi.end() && it->morton_code == item.morton_code) {
+      markers.back().poi_count += it->count;
+      poi.erase(it);
+    }
+  }
+  for (const auto& item : poi)
+    markers.push_back({pointf_from_morton(item.morton_code), item.count, false});
+  return markers;
 }
 
 } // namespace
@@ -159,23 +184,8 @@ pc::future<std::vector<marker>> poidb::generalize(const QRectF& viewport, int z_
       pc::async(QThreadPool::globalInstance(), generalize_func,
           std::shared_ptr<const std::vector<uint64_t>>{data_, &data_->regular})};
   return pc::when_all(std::make_move_iterator(futures.begin()), std::make_move_iterator(futures.end()))
-      .next([](std::vector<pc::future<std::vector<point_group>>> results) {
-        std::vector<point_group> adw = results[0].get();
-        std::vector<point_group> poi = results[1].get();
-
-        std::vector<marker> markers;
-        markers.reserve(adw.size() + poi.size());
-        for (const auto& item : adw) {
-          markers.push_back({pointf_from_morton(item.morton_code), item.count, true});
-          auto it = std::lower_bound(poi.begin(), poi.end(), item, point_group_morton_code_less{});
-          if (it != poi.end() && it->morton_code == item.morton_code) {
-            markers.back().poi_count += it->count;
-            poi.erase(it);
-          }
-        }
-        for (const auto& item : poi)
-          markers.push_back({pointf_from_morton(item.morton_code), item.count, false});
-        return markers;
+      .next([min, max, z_level](std::vector<pc::future<std::vector<point_group>>> results) {
+        return merge_generalizations(results[0].get(), results[1].get(), min, max, z_level);
       });
 }
 
