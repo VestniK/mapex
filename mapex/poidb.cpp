@@ -107,7 +107,7 @@ std::vector<point_group> generalize(
   return res;
 }
 
-uint64_t pointf_to_forton(QPointF pt) noexcept {
+uint64_t pointf_to_morton(QPointF pt) noexcept {
   assert(pt.x() < 1.0 && pt.x() >= 0.0);
   assert(pt.y() < 1.0 && pt.y() >= 0.0);
   return morton::code(point{static_cast<uint32_t>(std::numeric_limits<uint32_t>::max() * pt.x()),
@@ -132,17 +132,23 @@ void poidb::reload(network_thread& net) {
   std::array<pc::future<poi_data>, 2> futures = {load_poi(net).then(notify).detach(), fetch_poi_cache()};
   load_future_ = pc::when_any(futures.begin(), futures.end())
                      .next([](pc::when_any_result<std::vector<pc::future<poi_data>>> res) {
-                       poi_data data = res.futures[res.index].get(); // TODO: handle network errors here
-                       if (res.index == 1 && data.regular.empty() && data.advertized.empty())
-                         return std::move(res.futures[0]);
-                       return pc::make_ready_future(std::move(data));
+                       try {
+                         poi_data data = res.futures[res.index].get(); // TODO: handle network errors here
+                         if (res.index == 1 && data.regular.empty() && data.advertized.empty())
+                           return std::move(res.futures[0]);
+                         return pc::make_ready_future(std::move(data));
+                       } catch (network_error err) { // TODO: network error
+                         assert(res.index == 0);
+                         qWarning("POI download load failed: %s", err.what());
+                         return std::move(res.futures[1]);
+                       }
                      })
                      .then(notify);
 }
 
 pc::future<std::vector<marker>> poidb::generalize(const QRectF& viewport, int z_level) const {
-  const uint64_t min = pointf_to_forton(viewport.topLeft());
-  const uint64_t max = pointf_to_forton(viewport.bottomRight());
+  const uint64_t min = pointf_to_morton(viewport.topLeft());
+  const uint64_t max = pointf_to_morton(viewport.bottomRight());
 
   auto generalize_func = [min, max, z_level](std::shared_ptr<const std::vector<uint64_t>> points) {
     return ::generalize(*points, min, max, z_level);

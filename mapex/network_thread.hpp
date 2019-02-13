@@ -12,6 +12,13 @@
 class QNetworkReply;
 class QUrl;
 
+class network_error : public std::system_error {
+public:
+  network_error(std::error_code ec, const std::string& message) : std::system_error{ec, message} {}
+  network_error(int cond, const std::error_category& category, const std::string& message)
+      : std::system_error{cond, category, message} {}
+};
+
 class network_thread {
 public:
   network_thread();

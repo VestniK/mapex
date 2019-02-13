@@ -47,9 +47,9 @@ constexpr QPoint max(QPoint a, QPoint b) noexcept { return {std::max(a.x(), b.x(
 } // namespace
 
 tile_widget::tile_widget(geo_point center, int z_level, network_thread* net, QWidget* parent)
-    : QWidget{parent}, icons_({QImage{"icons:multi-poi.png"}, QImage{"icons:multi-adw.png"},
-                           QImage{"icons:single-poi.png"}, QImage{"icons:single-adw.png"}}),
-      net_{net}, projected_center_{project(center)}, z_level_{z_level} {
+    : QWidget{parent}, net_{net}, icons_({QImage{"icons:multi-poi.png"}, QImage{"icons:multi-adw.png"},
+                                      QImage{"icons:single-poi.png"}, QImage{"icons:single-adw.png"}}),
+      projected_center_{project(center)}, z_level_{z_level} {
   connect(&poi_, &poidb::updated, this, &tile_widget::on_viewport_change);
   on_viewport_change();
 }
@@ -198,7 +198,11 @@ void tile_widget::check_finished_tasks() {
       ++it;
       continue;
     }
-    images_[it->first] = it->second.get();
+    try {
+      images_[it->first] = it->second.get();
+    } catch (network_error err) { // TODO: network_error
+      qWarning("Network error: %s", err.what());
+    }
     it = tasks_.erase(it);
   }
 

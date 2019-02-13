@@ -44,7 +44,7 @@ private slots:
     if (std::exchange(promise_satisfied_, true))
       return;
     auto* reply = qobject_cast<QNetworkReply*>(sender());
-    promise_.set_exception(std::make_exception_ptr(std::system_error{err, reply->errorString().toStdString()}));
+    promise_.set_exception(std::make_exception_ptr(network_error{err, reply->errorString().toStdString()}));
   }
 
   void on_reply_sslErrors(const QList<QSslError>&) {
@@ -52,7 +52,8 @@ private slots:
     if (std::exchange(promise_satisfied_, true))
       return;
     auto* reply = qobject_cast<QNetworkReply*>(sender());
-    promise_.set_exception(std::make_exception_ptr(std::runtime_error{"SSL Error"})); // TODO std::system_error
+    promise_.set_exception(std::make_exception_ptr(
+        network_error{std::make_error_code(std::errc::protocol_error), "SSL Error"})); // TODO: better error
   }
 
 private:
