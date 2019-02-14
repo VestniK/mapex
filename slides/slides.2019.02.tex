@@ -19,7 +19,13 @@
 \setbeamercolor{frametitle}{fg=white,bg=DgisGreen}
 \setbeamercolor{title}{fg=white,bg=DgisGreen}
 \beamertemplatenavigationsymbolsempty
-\setbeamertemplate{footline}[frame number]
+\setbeamertemplate{footline}{%
+  \hfill%
+  \usebeamercolor[fg]{page number in head/foot}%
+  \usebeamerfont{page number in head/foot}%
+  \insertpagenumber\,/\,\insertdocumentendpage
+  \kern1em\vskip2pt%
+}
 
 % Настройки листинга
 \definecolor{comments}{rgb}{0.5,0.5,0.5}
@@ -112,6 +118,8 @@
 
 В угоду лаконичности и удобству чтения слайдов код примеров в презентации упрощён, не следует правилам хорошего тона и
 может даже не компилироваться.
+
+\center{\includegraphics[height=0.4\textheight]{shrung.jpeg}}
 \end{frame}
 
 \begin{frame}[fragile,t]{\texttt{future} в UI потоке}
@@ -354,7 +362,7 @@ future<QNetworkReply*> send_request(
 \begin{itemize}
  \item Вызывать \texttt{send\_request} можно только в сетевом потоке.
  \item Она возвращает \texttt{future}.
- \item Функция \texttt{async} добавляет к козвращаемому значению \texttt{future}.
+ \item Функция \texttt{async} добавляет к в озвращаемому значению \texttt{future}.
 \end{itemize}
 \end{onlyenv}
 \begin{onlyenv}<2>
@@ -392,7 +400,7 @@ future<QNetworkReply*> f = async(
 \begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
-QImage parse_image(QIODevice&);
+QImage parse_image(QIODevice*);
 
 tasks[id] = async(&nm, [&nm, id] {
   return send_reques(nm, get_tile_url(id));
@@ -403,7 +411,7 @@ tasks[id] = async(&nm, [&nm, id] {
 \begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
-QImage parse_image(QIODevice&);
+QImage parse_image(QIODevice*);
 
 tasks[id] = async(&nm, [&nm, id] {
   return send_reques(nm, get_tile_url(id));
@@ -418,7 +426,7 @@ tasks[id] = async(&nm, [&nm, id] {
 \begin{lstlisting}[style=cppcode,belowskip=0pt]
 map<tile_id, std::future<QImage>> tasks;
 QUrl get_tile_url(tile_id);
-QImage parse_image(QIODevice&);
+QImage parse_image(QIODevice*);
 
 tasks[id] = async(&nm, [&nm, id] {
   return send_reques(nm, get_tile_url(id));
