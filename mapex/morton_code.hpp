@@ -12,6 +12,8 @@ constexpr bool is_in_rect(point pt, point rect_min, point rect_max) noexcept {
   return pt.x >= rect_min.x && pt.y >= rect_min.y && pt.x <= rect_max.x && pt.y <= rect_max.y;
 }
 
+constexpr point operator+ (point lhs, point rhs) noexcept {return {lhs.x + rhs.x, lhs.y + rhs.y};}
+
 constexpr bool operator==(point l, point r) noexcept { return l.x == r.x && l.y == r.y; }
 constexpr bool operator!=(point l, point r) noexcept { return l.x != r.x || l.y != r.y; }
 

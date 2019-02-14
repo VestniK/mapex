@@ -74,18 +74,14 @@ struct point_group {
   int count;
 };
 
-struct point_group_morton_code_less {
-  constexpr bool operator()(const point_group& lhs, const point_group& rhs) const noexcept {
-    return lhs.morton_code < rhs.morton_code;
-  }
-};
-
-uint64_t pointf_to_morton(QPointF pt) noexcept {
+point pointf_to_point(QPointF pt) noexcept {
   assert(pt.x() < 1.0 && pt.x() >= 0.0);
   assert(pt.y() < 1.0 && pt.y() >= 0.0);
-  return morton::code(point{static_cast<uint32_t>(std::numeric_limits<uint32_t>::max() * pt.x()),
-      static_cast<uint32_t>(std::numeric_limits<uint32_t>::max() * pt.y())});
+  return point{static_cast<uint32_t>(std::numeric_limits<uint32_t>::max() * pt.x()),
+      static_cast<uint32_t>(std::numeric_limits<uint32_t>::max() * pt.y())};
 }
+
+uint64_t pointf_to_morton(QPointF pt) noexcept { return morton::code(pointf_to_point(pt)); }
 
 QPointF pointf_from_morton(uint64_t code) noexcept {
   const auto pt = morton::decode(code);
@@ -128,21 +124,88 @@ std::vector<point_group> generalize(
   return res;
 }
 
+constexpr point aligned_point(point pt, unsigned bit_alignment) noexcept {
+  const uint32_t mask = ~uint32_t{0} << bit_alignment;
+  return {pt.x & mask, pt.y & mask};
+}
+
+QPointF abs(QPointF pt) noexcept { return {std::abs(pt.x()), std::abs(pt.y())}; }
+
+bool marker_overlaps(const QPointF& lhs, const QPointF& rhs, uint32_t min_dist) noexcept {
+  const point diff = pointf_to_point(abs(rhs - lhs));
+  return diff.x < min_dist || diff.y < min_dist;
+}
+
+marker merge_marker(marker lhs, marker rhs) noexcept {
+  marker res{(lhs.poi_count * lhs.point + rhs.poi_count * rhs.point) / (lhs.poi_count + rhs.poi_count),
+      (lhs.poi_count + rhs.poi_count), lhs.has_advertizers || rhs.has_advertizers};
+  return res;
+}
+
+void merge_marker(std::vector<marker>& markers, marker item, uint32_t min_dist) noexcept {
+  for (auto it = markers.begin(); it != markers.end();) {
+    if (!marker_overlaps(it->point, item.point, min_dist)) {
+      ++it;
+      continue;
+    }
+    item = merge_marker(item, *it);
+    it = markers.erase(it);
+    return merge_marker(markers, item, min_dist);
+  }
+  markers.push_back(item);
+}
+
 std::vector<marker> merge_generalizations(
     std::vector<point_group> ads, std::vector<point_group> poi, uint64_t vp_min, uint64_t vp_max, int z_level) {
-  std::vector<marker> markers;
-  markers.reserve(ads.size() + poi.size());
-  for (const auto& item : ads) {
-    markers.push_back({pointf_from_morton(item.morton_code), item.count, true});
-    auto it = std::lower_bound(poi.begin(), poi.end(), item, point_group_morton_code_less{});
-    if (it != poi.end() && it->morton_code == item.morton_code) {
-      markers.back().poi_count += it->count;
-      poi.erase(it);
+  std::vector<marker> res;
+  //  std::transform(
+  //    ads.begin(), ads.end(), std::back_inserter(res),
+  //    [](point_group grp) {return marker{pointf_from_morton(grp.morton_code), grp.count, true};});
+  //  std::transform(
+  //    poi.begin(), poi.end(), std::back_inserter(res),
+  //    [](point_group grp) {return marker{pointf_from_morton(grp.morton_code), grp.count, false};});
+  std::vector<marker> box_markers;
+  const unsigned group_bit_alignment =
+      world_coord_range_log2 - (tile_pixel_size_log2 - (cell_pixel_size_log2 + 1) + z_level);
+  const point vp_min_pt = aligned_point(morton::decode(vp_min), group_bit_alignment);
+  const point vp_max_pt = morton::decode(vp_max);
+
+  const uint32_t box_side = (uint32_t{1} << group_bit_alignment);
+  for (point box_min = vp_min_pt; box_min.x < vp_max_pt.x; box_min.x += box_side / 2) { // TODO: handle overflows
+    for (box_min.y = vp_min_pt.y; box_min.y < vp_max_pt.y; box_min.y += box_side / 2) { // TODO: handle overflows
+      const point box_max = box_min + point{box_side, box_side};                        // TODO: handle overflows
+
+      for (auto it = res.begin(); it != res.end();) {
+        if (!is_in_rect(pointf_to_point(it->point), box_min, box_max)) {
+          ++it;
+          continue;
+        }
+        box_markers.push_back(*it); // No markers in res overlaps. No need to to search and merge overlaps
+        it = res.erase(it);
+      }
+
+      for (auto it = ads.begin(); it != ads.end();) {
+        if (!is_in_rect(morton::decode(it->morton_code), box_min, box_max)) {
+          ++it;
+          continue;
+        }
+        merge_marker(box_markers, {pointf_from_morton(it->morton_code), it->count, true}, box_side / 2);
+        it = ads.erase(it);
+      }
+
+      for (auto it = poi.begin(); it != poi.end();) {
+        if (!is_in_rect(morton::decode(it->morton_code), box_min, box_max)) {
+          ++it;
+          continue;
+        }
+        merge_marker(box_markers, {pointf_from_morton(it->morton_code), it->count, false}, box_side / 2);
+        it = poi.erase(it);
+      }
+      std::move(box_markers.begin(), box_markers.end(), std::back_inserter(res));
+      box_markers.clear();
     }
   }
-  for (const auto& item : poi)
-    markers.push_back({pointf_from_morton(item.morton_code), item.count, false});
-  return markers;
+  return res;
 }
 
 } // namespace
