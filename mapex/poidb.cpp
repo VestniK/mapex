@@ -158,12 +158,6 @@ void merge_marker(std::vector<marker>& markers, marker item, uint32_t min_dist) 
 std::vector<marker> merge_generalizations(
     std::vector<point_group> ads, std::vector<point_group> poi, uint64_t vp_min, uint64_t vp_max, int z_level) {
   std::vector<marker> res;
-  //  std::transform(
-  //    ads.begin(), ads.end(), std::back_inserter(res),
-  //    [](point_group grp) {return marker{pointf_from_morton(grp.morton_code), grp.count, true};});
-  //  std::transform(
-  //    poi.begin(), poi.end(), std::back_inserter(res),
-  //    [](point_group grp) {return marker{pointf_from_morton(grp.morton_code), grp.count, false};});
   std::vector<marker> box_markers;
   const unsigned group_bit_alignment =
       world_coord_range_log2 - (tile_pixel_size_log2 - (cell_pixel_size_log2 + 1) + z_level);
